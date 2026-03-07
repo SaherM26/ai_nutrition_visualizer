@@ -1,0 +1,186 @@
+import React, { useState } from 'react';
+
+// The main application component for the signup page
+const SignUpPage = () => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    const handleSignup = (e: React.FormEvent) => {
+        e.preventDefault();
+        // Here you would add your user registration logic.
+        // For now, we'll just log the values and check for a password match.
+        if (password !== confirmPassword) {
+            console.error("Passwords do not match.");
+            return;
+        }
+        console.log('Signing up with:', { email, password });
+    };
+
+    return (
+        <>
+            <style>{`
+            /* Container */
+            .signup-page-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                width: 100%;
+                background-image: linear-gradient(rgba(255, 255, 255, 0.10),
+                                rgba(255, 255, 255, 0.6)),
+                                url("/images/login_bg.png");
+                background-size: cover;
+                background-position: center;
+                font-family: 'archivo', sans-serif;
+            }
+
+            /* Card */
+            .signup-card {
+                background: white;
+                padding: 2.5rem;
+                border-radius: 1.5rem;
+                box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
+                width: 350px;
+                text-align: center;
+                animation: fadeIn 0.8s ease-in-out;
+            }
+
+            /* Heading */
+            .signup-card h1 {
+                color: #4b4b4b;
+                font-size: 2rem;
+                margin-bottom: 1.5rem;
+                font-weight: bold;
+            }
+
+            /* Form */
+            .signup-form {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            /* Input fields */
+            .signup-input {
+                padding: 0.8rem;
+                border: 1px solid #ccc;
+                border-radius: 2rem;
+                font-size: 1rem;
+                outline: none;
+                transition: border 0.3s, box-shadow 0.3s;
+            }
+
+            .signup-input:focus {
+                border: 1px solid #e5903d;
+                box-shadow: 0 0 8px rgba(229, 144, 61, 0.3);
+            }
+
+            /* Signup button */
+            .signup-button {
+                background-color: #e5903d;
+                color: white;
+                border: none;
+                padding: 0.8rem;
+                border-radius: 2rem;
+                font-size: 1rem;
+                font-weight: bold;
+                cursor: pointer;
+                transition: transform 0.2s, background 0.3s;
+            }
+
+            .signup-button:hover {
+                transform: scale(1.05);
+                background-color: #d97922;
+            }
+
+            /* Social buttons wrapper */
+            .social-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 0.8rem;
+                margin-top: 1.5rem;
+            }
+
+            /* Social buttons */
+            .social-button {
+                width: 100%;
+                padding: 0.8rem;
+                border-radius: 2rem;
+                border: none;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s, opacity 0.3s;
+                color: white;
+            }
+
+            /* social button */
+            .google-button , .apple-button {
+                background-color: #99a146 !important;
+            }
+
+            .google-button:hover, .apple-button:hover {
+                transform: scale(1.05);
+                opacity: 0.9
+                background-color: #6B8E23!important;
+            }
+
+
+            /* Animation */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            `}</style>
+
+            <div className="signup-page-container">
+                <div className="signup-card">
+                    <h1>SIGN UP</h1>
+                    <form onSubmit={handleSignup} className="signup-form">
+                        <input
+                            className="signup-input"
+                            type="email"
+                            placeholder="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                        <input
+                            className="signup-input"
+                            type="password"
+                            placeholder="Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                        <input
+                            className="signup-input"
+                            type="password"
+                            placeholder="Confirm Password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                        <button type="submit" className="signup-button">
+                            Sign Up
+                        </button>
+                    </form>
+                    <div className="social-buttons">
+                        <button className="social-button google-button">
+                            Continue with Google
+                        </button>
+                        <button className="social-button apple-button">
+                            Continue with Apple
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
+export default SignUpPage;

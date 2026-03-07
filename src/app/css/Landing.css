@@ -1,0 +1,240 @@
+.landing-page-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 1rem;
+    background-color: #fff6ed;
+    position: relative;
+    overflow: hidden;
+    font-family: sans-serif;
+}
+
+.button-container.top-left {
+    position: absolute;
+    top: 1.5rem;
+    left: 2rem;
+    z-index: 20;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.login-button,
+.signup-button {
+    background-color: #e23b53;
+    color: white;
+    font-weight: bold;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.login-button:hover,
+.signup-button:hover {
+    transform: scale(1.05);
+}
+
+.main-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+    max-width: 80rem;
+
+
+}
+
+@media (min-width: 1024px) {
+    .main-content-wrapper {
+        flex-direction: row;
+        gap: 3rem;
+    }
+}
+
+.text-content {
+    flex: 1;
+    text-align: center;
+}
+
+@media (min-width: 1024px) {
+    .text-content {
+        text-align: left;
+    }
+}
+
+.main-heading {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #d61439;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+    .main-heading {
+        font-size: 3.75rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .main-heading {
+        font-size: 4.5rem;
+    }
+}
+
+.sub-heading {
+    font-size: 1rem;
+    color: #6b6b6b;
+    margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+    .sub-heading {
+        font-size: 1.5rem;
+    }
+}
+
+.image-and-annotations-container {
+    flex: 1;
+    position: relative;
+    width: 50%;
+    height: auto;
+    margin-top: 1rem;
+}
+
+.main-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.annotation {
+    position: absolute;
+}
+
+.annotation-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4a5568;
+    white-space: nowrap;
+}
+
+.annotation-line {
+    width: 3rem;
+    height: 1px;
+    background-color: #6b6b6b;
+}
+
+.top-right-annotation {
+    top: 15%;
+    right: -10%;
+    transform: translate(-10%, -50%);
+}
+
+.line-1 {
+    transform: rotate(45deg);
+}
+
+.bottom-left-annotation {
+    top: 60%;
+    left: 20%;
+    transform: translate(-50%, -50%);
+}
+
+.line-2 {
+    transform: rotate(-45deg);
+}
+
+.leaf {
+    position: absolute;
+}
+
+.leaf-1 {
+    top: 78%;
+    left: 0%;
+}
+
+.leaf-2 {
+    top: 5%;
+    right: 48%;
+    transform: rotate(180deg);
+}
+
+.bottom-navigation-container {
+    position: absolute;
+    bottom: 1rem;
+    width: 100%;
+}
+
+.navigation-buttons-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+}
+
+.navigation-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.nav-button {
+    background-color: #f29266;
+    color: white;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.login-page-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.login-page-container h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #d61439;
+    margin-bottom: 1rem;
+}
+
+.login-page-container button {
+    background-color: #f29266;
+    color: white;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.nav-button:hover,
+.login-page-container button:hover {
+    transform: scale(1.05);
+}
+
+.copyright-text {
+    margin-top: 0.5rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #6b6b6b;
+}
