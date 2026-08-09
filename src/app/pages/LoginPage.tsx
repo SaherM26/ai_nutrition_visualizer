@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import type { PageProps } from './types';
 
 // The main application component for the login page
-const LoginPage = () => {
+const LoginPage = ({ setCurrentPage }: PageProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
@@ -117,8 +118,28 @@ const LoginPage = () => {
 
             .google-button:hover, .apple-button:hover {
                 transform: scale(1.05);
-                opacity: 0.9
+                opacity: 0.9;
                 background-color: #6B8E23!important;
+            }
+
+            .back-link {
+                background: none;
+                border: none;
+                color: #6b6b6b;
+                font-size: 0.85rem;
+                cursor: pointer;
+                margin-top: 1.25rem;
+                text-decoration: underline;
+            }
+
+            .signup-link {
+                background: none;
+                border: none;
+                color: #e5903d;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 0.9rem;
+                margin-top: 0.75rem;
             }
 
             /* Animation */
@@ -164,6 +185,13 @@ const LoginPage = () => {
                             Continue with Apple
                         </button>
                     </div>
+                    <button className="signup-link" onClick={() => setCurrentPage('signup')}>
+                        Don&apos;t have an account? Sign up
+                    </button>
+                    <br />
+                    <button className="back-link" onClick={() => setCurrentPage('landing')}>
+                        ← Back to Home
+                    </button>
                 </div>
             </div>
         </>

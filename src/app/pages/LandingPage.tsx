@@ -5,13 +5,16 @@ import LoginPage from "./LoginPage";
 import SignupPage from "./SignupPage";
 import HowItWorks from "./HowItWorks";
 import Upload from "./Upload";
-import { Contact } from "./Contact";
+import Contact from "./Contact";
+import Alternatives from "./alternatives";
 import "../css/Landing.css";
-
-type PageType = "landing" | "login" | "signup" | "howitworks" | "upload" | "contact";
+import type { PageType, PageProps, AnalyzedDish } from "./types";
 
 export default function LandingPage() {
     const [currentPage, setCurrentPage] = useState<PageType>("landing");
+    // Holds the most recently analyzed dish so the Alternatives page
+    // can reference it without a re-upload.
+    const [analyzedDish, setAnalyzedDish] = useState<AnalyzedDish | null>(null);
 
     const renderPage = () => {
         switch (currentPage) {
@@ -24,9 +27,16 @@ export default function LandingPage() {
             case "howitworks":
                 return <HowItWorks setCurrentPage={setCurrentPage} />;
             case "upload":
-                return <Upload setCurrentPage={setCurrentPage} />;
+                return (
+                    <Upload
+                        setCurrentPage={setCurrentPage}
+                        onAnalyzed={(data, image) => setAnalyzedDish({ data, image })}
+                    />
+                );
             case "contact":
                 return <Contact setCurrentPage={setCurrentPage} />;
+            case "alternatives":
+                return <Alternatives setCurrentPage={setCurrentPage} dish={analyzedDish} />;
             default:
                 return <LandingContent setCurrentPage={setCurrentPage} />;
         }
@@ -36,7 +46,7 @@ export default function LandingPage() {
 }
 
 // A component for the landing page
-const LandingContent: React.FC<{ setCurrentPage: React.Dispatch<React.SetStateAction<PageType>> }> = ({ setCurrentPage }) => {
+const LandingContent: React.FC<PageProps> = ({ setCurrentPage }) => {
     return (
         <>
             {/* Top Left Buttons */}

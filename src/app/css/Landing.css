@@ -3,11 +3,11 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     padding: 1rem;
     background-color: #fff6ed;
     position: relative;
-    overflow: hidden;
+    overflow-y: auto;
     font-family: sans-serif;
 }
 

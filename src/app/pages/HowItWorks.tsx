@@ -1,11 +1,12 @@
 import React from 'react';
+import type { PageProps } from './types';
 
 // Main App component for the "How It Works" page
-export default function HowItWorks() {
-    return (
-        <>
-            <style>
-                {`
+export default function HowItWorks({ setCurrentPage }: PageProps) {
+  return (
+    <>
+      <style>
+        {`
           /* Reset and base styles */
           body {
             margin: 0;
@@ -141,69 +142,86 @@ export default function HowItWorks() {
           .step-description {
             color: var(--text-light-color);
           }
+
+          .how-it-works-back {
+            align-self: flex-start;
+            max-width: 90rem;
+            width: 100%;
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0 auto;
+          }
         `}
-            </style>
-            <div className="how-it-works-container">
-                {/* Main content wrapper */}
-                <div className="main-content-wrapper">
-                    <h1 className="main-title">
-                        See How It Works
-                    </h1>
+      </style>
+      <div className="how-it-works-container">
+        <button className="how-it-works-back" onClick={() => setCurrentPage('landing')}>
+          ← Back to Home
+        </button>
 
-                    {/* Grid for the four steps */}
-                    <div className="steps-grid">
+        {/* Main content wrapper */}
+        <div className="main-content-wrapper">
+          <h1 className="main-title">
+            See How It Works
+          </h1>
 
-                        {/* Step 1: Upload Your Photo */}
-                        <div className="step-card">
-                            <span className="step-number">01.</span>
-                            <div className="icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.808-1.212A2 2 0 0110.664 4h2.672a2 2 0 011.664.89l.808 1.212A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </div>
-                            <h3 className="step-heading">Upload Your Photo</h3>
-                            <p className="step-description">Snap a picture of your meal or select one from your gallery.</p>
-                        </div>
+          {/* Grid for the four steps */}
+          <div className="steps-grid">
 
-                        {/* Step 2: AI Recognizes & Analyzes */}
-                        <div className="step-card">
-                            <span className="step-number">02.</span>
-                            <div className="icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9.75 14.25M9.75 14.25L12 11.25M9.75 14.25L12 11.25M12 11.25L14.25 14.25M12 11.25L14.25 14.25M12 11.25L9.75 14.25M14.25 14.25L14.25 17M14.25 17H9.75M9.75 17L9.75 14.25M14.25 17L14.25 14.25M12 21a9 9 0 100-18 9 9 0 000 18z" />
-                                </svg>
-                            </div>
-                            <h3 className="step-heading">AI Recognizes & Analyzes</h3>
-                            <p className="step-description">Our intelligent AI identifies and understands your dish.</p>
-                        </div>
-
-                        {/* Step 3: Get Instant Nutrition Data */}
-                        <div className="step-card">
-                            <span className="step-number">03.</span>
-                            <div className="icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h4l2-2h4l2 2h4a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                                </svg>
-                            </div>
-                            <h3 className="step-heading">Get Instant Nutrition Data</h3>
-                            <p className="step-description">Access detailed calories, macros, and micronutrients instantly.</p>
-                        </div>
-
-                        {/* Step 4: Discover Healthier Choices */}
-                        <div className="step-card">
-                            <span className="step-number">04.</span>
-                            <div className="icon-wrapper">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6m-4 0a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v6z" />
-                                </svg>
-                            </div>
-                            <h3 className="step-heading">Discover Healthier Choices</h3>
-                            <p className="step-description">Receive personalized, healthier alternative suggestions for your meal.</p>
-                        </div>
-                    </div>
-                </div>
+            {/* Step 1: Upload Your Photo */}
+            <div className="step-card">
+              <span className="step-number">01.</span>
+              <div className="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.808-1.212A2 2 0 0110.664 4h2.672a2 2 0 011.664.89l.808 1.212A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 className="step-heading">Upload Your Photo</h3>
+              <p className="step-description">Snap a picture of your meal or select one from your gallery.</p>
             </div>
-        </>
-    );
+
+            {/* Step 2: AI Recognizes & Analyzes */}
+            <div className="step-card">
+              <span className="step-number">02.</span>
+              <div className="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9.75 14.25M9.75 14.25L12 11.25M9.75 14.25L12 11.25M12 11.25L14.25 14.25M12 11.25L14.25 14.25M12 11.25L9.75 14.25M14.25 14.25L14.25 17M14.25 17H9.75M9.75 17L9.75 14.25M14.25 17L14.25 14.25M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                </svg>
+              </div>
+              <h3 className="step-heading">AI Recognizes & Analyzes</h3>
+              <p className="step-description">Our intelligent AI identifies and understands your dish.</p>
+            </div>
+
+            {/* Step 3: Get Instant Nutrition Data */}
+            <div className="step-card">
+              <span className="step-number">03.</span>
+              <div className="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h4l2-2h4l2 2h4a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="step-heading">Get Instant Nutrition Data</h3>
+              <p className="step-description">Access detailed calories, macros, and micronutrients instantly.</p>
+            </div>
+
+            {/* Step 4: Discover Healthier Choices */}
+            <div className="step-card">
+              <span className="step-number">04.</span>
+              <div className="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" className="step-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6m-4 0a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v6z" />
+                </svg>
+              </div>
+              <h3 className="step-heading">Discover Healthier Choices</h3>
+              <p className="step-description">Receive personalized, healthier alternative suggestions for your meal.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }

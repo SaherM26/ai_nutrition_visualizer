@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import type { PageProps } from './types';
 
 // The main application component for the signup page
-const SignUpPage = () => {
+const SignUpPage = ({ setCurrentPage }: PageProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -122,10 +123,29 @@ const SignUpPage = () => {
 
             .google-button:hover, .apple-button:hover {
                 transform: scale(1.05);
-                opacity: 0.9
+                opacity: 0.9;
                 background-color: #6B8E23!important;
             }
 
+            .back-link {
+                background: none;
+                border: none;
+                color: #6b6b6b;
+                font-size: 0.85rem;
+                cursor: pointer;
+                margin-top: 1.25rem;
+                text-decoration: underline;
+            }
+
+            .login-link {
+                background: none;
+                border: none;
+                color: #e5903d;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 0.9rem;
+                margin-top: 0.75rem;
+            }
 
             /* Animation */
             @keyframes fadeIn {
@@ -177,6 +197,13 @@ const SignUpPage = () => {
                             Continue with Apple
                         </button>
                     </div>
+                    <button className="login-link" onClick={() => setCurrentPage('login')}>
+                        Already have an account? Log in
+                    </button>
+                    <br />
+                    <button className="back-link" onClick={() => setCurrentPage('landing')}>
+                        ← Back to Home
+                    </button>
                 </div>
             </div>
         </>
