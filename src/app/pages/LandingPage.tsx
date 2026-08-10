@@ -7,10 +7,20 @@ import HowItWorks from "./HowItWorks";
 import Upload from "./Upload";
 import Contact from "./Contact";
 import Alternatives from "./alternatives";
+import History from "./History";
 import "../css/Landing.css";
 import type { PageType, PageProps, AnalyzedDish } from "./types";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 
 export default function LandingPage() {
+    return (
+        <AuthProvider>
+            <LandingPageInner />
+        </AuthProvider>
+    );
+}
+
+function LandingPageInner() {
     const [currentPage, setCurrentPage] = useState<PageType>("landing");
     // Holds the most recently analyzed dish so the Alternatives page
     // can reference it without a re-upload.
@@ -37,6 +47,8 @@ export default function LandingPage() {
                 return <Contact setCurrentPage={setCurrentPage} />;
             case "alternatives":
                 return <Alternatives setCurrentPage={setCurrentPage} dish={analyzedDish} />;
+            case "history":
+                return <History setCurrentPage={setCurrentPage} />;
             default:
                 return <LandingContent setCurrentPage={setCurrentPage} />;
         }
@@ -47,16 +59,31 @@ export default function LandingPage() {
 
 // A component for the landing page
 const LandingContent: React.FC<PageProps> = ({ setCurrentPage }) => {
+    const { user, logout } = useAuth();
+
     return (
         <>
             {/* Top Left Buttons */}
             <div className="button-container top-left">
-                <button className="login-button" onClick={() => setCurrentPage("login")}>
-                    LOG IN
-                </button>
-                <button className="signup-button" onClick={() => setCurrentPage("signup")}>
-                    SIGN UP
-                </button>
+                {user ? (
+                    <>
+                        <button className="login-button" onClick={() => setCurrentPage("history")}>
+                            MY HISTORY
+                        </button>
+                        <button className="signup-button" onClick={() => logout()}>
+                            LOG OUT
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button className="login-button" onClick={() => setCurrentPage("login")}>
+                            LOG IN
+                        </button>
+                        <button className="signup-button" onClick={() => setCurrentPage("signup")}>
+                            SIGN UP
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* Main Content */}

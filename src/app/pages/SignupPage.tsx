@@ -1,21 +1,38 @@
 import React, { useState } from 'react';
 import type { PageProps } from './types';
+import { useAuth } from '../context/AuthContext';
 
 // The main application component for the signup page
 const SignUpPage = ({ setCurrentPage }: PageProps) => {
+    const { signup } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleSignup = (e: React.FormEvent) => {
+    const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Here you would add your user registration logic.
-        // For now, we'll just log the values and check for a password match.
+        setError('');
+
         if (password !== confirmPassword) {
-            console.error("Passwords do not match.");
+            setError('Passwords do not match.');
             return;
         }
-        console.log('Signing up with:', { email, password });
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+        }
+
+        setSubmitting(true);
+        const result = await signup(email, password);
+        setSubmitting(false);
+
+        if (!result.success) {
+            setError(result.error || 'Signup failed.');
+            return;
+        }
+        setCurrentPage('upload');
     };
 
     return (
@@ -147,6 +164,22 @@ const SignUpPage = ({ setCurrentPage }: PageProps) => {
                 margin-top: 0.75rem;
             }
 
+            .signup-error {
+                color: #d61439;
+                font-size: 0.85rem;
+                margin-top: -0.25rem;
+                margin-bottom: -0.5rem;
+            }
+
+            .social-button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .social-button:disabled:hover {
+                transform: none;
+            }
+
             /* Animation */
             @keyframes fadeIn {
                 from {
@@ -170,6 +203,7 @@ const SignUpPage = ({ setCurrentPage }: PageProps) => {
                             placeholder="Email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            required
                         />
                         <input
                             className="signup-input"
@@ -177,6 +211,7 @@ const SignUpPage = ({ setCurrentPage }: PageProps) => {
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            required
                         />
                         <input
                             className="signup-input"
@@ -184,16 +219,18 @@ const SignUpPage = ({ setCurrentPage }: PageProps) => {
                             placeholder="Confirm Password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
                         />
-                        <button type="submit" className="signup-button">
-                            Sign Up
+                        {error && <p className="signup-error">{error}</p>}
+                        <button type="submit" className="signup-button" disabled={submitting}>
+                            {submitting ? 'Signing up...' : 'Sign Up'}
                         </button>
                     </form>
                     <div className="social-buttons">
-                        <button className="social-button google-button">
+                        <button className="social-button google-button" disabled title="Coming soon">
                             Continue with Google
                         </button>
-                        <button className="social-button apple-button">
+                        <button className="social-button apple-button" disabled title="Coming soon">
                             Continue with Apple
                         </button>
                     </div>

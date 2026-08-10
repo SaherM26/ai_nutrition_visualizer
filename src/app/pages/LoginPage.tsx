@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
 import type { PageProps } from './types';
+import { useAuth } from '../context/AuthContext';
 
 // The main application component for the login page
 const LoginPage = ({ setCurrentPage }: PageProps) => {
+    const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Here you would add your authentication logic.
-        // For now, we'll just log the values.
-        console.log('Logging in with:', { email, password });
+        setError('');
+        setSubmitting(true);
+        const result = await login(email, password);
+        setSubmitting(false);
+        if (!result.success) {
+            setError(result.error || 'Login failed.');
+            return;
+        }
+        setCurrentPage('upload');
     };
 
     return (
@@ -142,6 +152,22 @@ const LoginPage = ({ setCurrentPage }: PageProps) => {
                 margin-top: 0.75rem;
             }
 
+            .login-error {
+                color: #d61439;
+                font-size: 0.85rem;
+                margin-top: -0.25rem;
+                margin-bottom: -0.5rem;
+            }
+
+            .social-button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .social-button:disabled:hover {
+                transform: none;
+            }
+
             /* Animation */
             @keyframes fadeIn {
                 from {
@@ -165,6 +191,7 @@ const LoginPage = ({ setCurrentPage }: PageProps) => {
                             placeholder="Email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            required
                         />
                         <input
                             className="login-input"
@@ -172,16 +199,18 @@ const LoginPage = ({ setCurrentPage }: PageProps) => {
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            required
                         />
-                        <button type="submit" className="login-button">
-                            Login
+                        {error && <p className="login-error">{error}</p>}
+                        <button type="submit" className="login-button" disabled={submitting}>
+                            {submitting ? 'Logging in...' : 'Login'}
                         </button>
                     </form>
                     <div className="social-buttons">
-                        <button className="social-button google-button">
+                        <button className="social-button google-button" disabled title="Coming soon">
                             Continue with Google
                         </button>
-                        <button className="social-button apple-button">
+                        <button className="social-button apple-button" disabled title="Coming soon">
                             Continue with Apple
                         </button>
                     </div>

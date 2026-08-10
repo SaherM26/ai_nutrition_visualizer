@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { PageProps, DishData } from './types';
+import { useAuth } from '../context/AuthContext';
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
@@ -9,172 +10,190 @@ const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
  * The browser never sees the API key.
  */
 const getNutritionFacts = async (base64Image: string): Promise<DishData> => {
-	const response = await fetch('/api/analyze', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ image: base64Image }),
-	});
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: base64Image }),
+  });
 
-	const result = await response.json();
+  const result = await response.json();
 
-	if (!response.ok) {
-		throw new Error(result?.error || `Request failed with status ${response.status}`);
-	}
+  if (!response.ok) {
+    throw new Error(result?.error || `Request failed with status ${response.status}`);
+  }
 
-	return result as DishData;
+  return result as DishData;
+};
+
+/** Persists an analyzed meal to the logged-in user's history. Silently no-ops on failure. */
+const saveMealToHistory = async (data: DishData, image: string) => {
+  try {
+    await fetch('/api/meals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, image }),
+    });
+  } catch (error) {
+    // Don't block the UI on history save failures — the user still gets their result.
+    console.error('Failed to save meal to history:', error);
+  }
 };
 
 type Status = 'upload' | 'loading' | 'results' | 'error';
 
 const emptyDishData: DishData = {
-	dishName: "", calories: "", protein: "", fats: "",
-	carbs: "", fiber: "", sugar: ""
+  dishName: "", calories: "", protein: "", fats: "",
+  carbs: "", fiber: "", sugar: ""
 };
 
 interface UploadProps extends PageProps {
-	onAnalyzed?: (data: DishData, image: string) => void;
+  onAnalyzed?: (data: DishData, image: string) => void;
 }
 
 // Main component for the Nutrition Visualizer application
 export default function App({ setCurrentPage, onAnalyzed }: UploadProps) {
-	// State to manage the application flow: 'upload', 'loading', 'results', 'error'
-	const [status, setStatus] = useState<Status>('upload');
-	// Stores the Base64 image data for preview and API call
-	const [imagePreview, setImagePreview] = useState<string | null>(null);
-	// Stores the fetched nutrition data
-	const [dishData, setDishData] = useState<DishData>(emptyDishData);
-	// Stores any user-facing error message
-	const [errorMessage, setErrorMessage] = useState('');
+  const { user, logout } = useAuth();
+  // State to manage the application flow: 'upload', 'loading', 'results', 'error'
+  const [status, setStatus] = useState<Status>('upload');
+  // Stores the Base64 image data for preview and API call
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // Stores the fetched nutrition data
+  const [dishData, setDishData] = useState<DishData>(emptyDishData);
+  // Stores any user-facing error message
+  const [errorMessage, setErrorMessage] = useState('');
 
-	const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-		// Validate type before we ever touch the network
-		if (!ACCEPTED_TYPES.includes(file.type)) {
-			setErrorMessage('Please upload a JPEG, PNG, WEBP, or HEIC image.');
-			setStatus('error');
-			return;
-		}
+    // Validate type before we ever touch the network
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setErrorMessage('Please upload a JPEG, PNG, WEBP, or HEIC image.');
+      setStatus('error');
+      return;
+    }
 
-		// Validate size before we ever touch the network
-		if (file.size > MAX_FILE_BYTES) {
-			setErrorMessage('Image is too large. Please upload something under 8MB.');
-			setStatus('error');
-			return;
-		}
+    // Validate size before we ever touch the network
+    if (file.size > MAX_FILE_BYTES) {
+      setErrorMessage('Image is too large. Please upload something under 8MB.');
+      setStatus('error');
+      return;
+    }
 
-		const reader = new FileReader();
-		reader.onloadend = async () => {
-			const base64Image = reader.result as string;
-			setImagePreview(base64Image);
-			setStatus('loading');
-			setErrorMessage(''); // Clear previous errors
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Image = reader.result as string;
+      setImagePreview(base64Image);
+      setStatus('loading');
+      setErrorMessage(''); // Clear previous errors
 
-			try {
-				const nutrition = await getNutritionFacts(base64Image);
-				setDishData(nutrition);
-				setStatus('results');
-				onAnalyzed?.(nutrition, base64Image);
-			} catch (error) {
-				console.error("Analysis Error:", error);
-				// Display a user-friendly error
-				setErrorMessage("The AI failed to analyze the image. Please try another image or check the console for details.");
+      try {
+        const nutrition = await getNutritionFacts(base64Image);
+        setDishData(nutrition);
+        setStatus('results');
+        onAnalyzed?.(nutrition, base64Image);
+        if (user) {
+          saveMealToHistory(nutrition, base64Image);
+        }
+      } catch (error) {
+        console.error("Analysis Error:", error);
+        // Display a user-friendly error
+        setErrorMessage("The AI failed to analyze the image. Please try another image or check the console for details.");
 
-				// Set default empty data on failure
-				setDishData({
-					dishName: "N/A", calories: "N/A", protein: "N/A", fats: "N/A",
-					carbs: "N/A", fiber: "N/A", sugar: "N/A"
-				});
-				setStatus('error');
-			}
-		};
-		reader.onerror = () => {
-			setErrorMessage('Could not read that file. Please try another image.');
-			setStatus('error');
-		};
-		reader.readAsDataURL(file);
-	};
+        // Set default empty data on failure
+        setDishData({
+          dishName: "N/A", calories: "N/A", protein: "N/A", fats: "N/A",
+          carbs: "N/A", fiber: "N/A", sugar: "N/A"
+        });
+        setStatus('error');
+      }
+    };
+    reader.onerror = () => {
+      setErrorMessage('Could not read that file. Please try another image.');
+      setStatus('error');
+    };
+    reader.readAsDataURL(file);
+  };
 
-	const handleClear = () => {
-		// Reset the state to the initial upload screen
-		setImagePreview(null);
-		setStatus('upload');
-		setErrorMessage('');
-		// Clear file input value
-		const fileInput = document.getElementById('file-upload') as HTMLInputElement | null;
-		if (fileInput) fileInput.value = '';
-		// Reset dish data to empty strings
-		setDishData(emptyDishData);
-	};
+  const handleClear = () => {
+    // Reset the state to the initial upload screen
+    setImagePreview(null);
+    setStatus('upload');
+    setErrorMessage('');
+    // Clear file input value
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement | null;
+    if (fileInput) fileInput.value = '';
+    // Reset dish data to empty strings
+    setDishData(emptyDishData);
+  };
 
-	// Render the content inside the Upload card
-	const renderUploadCardContent = () => {
-		// Show loading spinner when analyzing
-		if (status === 'loading') {
-			return (
-				<div className="upload-card-content loading-state">
-					<div className="spinner"></div>
-					<span className="upload-text" style={{ marginTop: '2rem' }}>Analyzing your meal...</span>
-				</div>
-			);
-		}
+  // Render the content inside the Upload card
+  const renderUploadCardContent = () => {
+    // Show loading spinner when analyzing
+    if (status === 'loading') {
+      return (
+        <div className="upload-card-content loading-state">
+          <div className="spinner"></div>
+          <span className="upload-text" style={{ marginTop: '2rem' }}>Analyzing your meal...</span>
+        </div>
+      );
+    }
 
-		// Default upload or error display state
-		return (
-			<div className="upload-card-content default-upload">
-				<label htmlFor="file-upload" className="camera-icon-container">
-					{/* Camera Icon SVG */}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="80"
-						height="80"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="1"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						className="upload-icon"
-					>
-						<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-						<circle cx="12" cy="13" r="3" />
-					</svg>
-					<input id="file-upload" type="file" accept="image/*" className="hidden-file-input" onChange={handleFileUpload} />
-				</label>
+    // Default upload or error display state
+    return (
+      <div className="upload-card-content default-upload">
+        <label htmlFor="file-upload" className="camera-icon-container">
+          {/* Camera Icon SVG */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="80"
+            height="80"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="upload-icon"
+          >
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+          <input id="file-upload" type="file" accept="image/*" className="hidden-file-input" onChange={handleFileUpload} />
+        </label>
 
-				{/* Display main text or error message */}
-				<span className="upload-text" style={{ color: status === 'error' ? '#d61439' : '#4a5568' }}>
-					{status === 'error' ? errorMessage : 'Drag and Drop or Tap to Upload'}
-				</span>
+        {/* Display main text or error message */}
+        <span className="upload-text" style={{ color: status === 'error' ? '#d61439' : '#4a5568' }}>
+          {status === 'error' ? errorMessage : 'Drag and Drop or Tap to Upload'}
+        </span>
 
-				{/* Clear button only visible once an image has been uploaded (status is 'results' or 'error') */}
-				{status !== 'upload' && (
-					<button className="clear-button" onClick={handleClear}>
-						Clear
-					</button>
-				)}
-			</div>
-		);
-	};
+        {/* Clear button only visible once an image has been uploaded (status is 'results' or 'error') */}
+        {status !== 'upload' && (
+          <button className="clear-button" onClick={handleClear}>
+            Clear
+          </button>
+        )}
+      </div>
+    );
+  };
 
-	// Renders the nutrition facts list in the two-column layout
-	const renderNutritionFacts = () => (
-		<div className="nutrition-container">
-			<div className="nutrition-column">
-				<div className="nutrition-item"><span>Calories:</span> <span>{dishData.calories}</span></div>
-				<div className="nutrition-item"><span>Fats:</span> <span>{dishData.fats}</span></div>
-				<div className="nutrition-item"><span>Fiber:</span> <span>{dishData.fiber}</span></div>
-			</div>
-			<div className="nutrition-column">
-				<div className="nutrition-item"><span>Protein:</span> <span>{dishData.protein}</span></div>
-				<div className="nutrition-item"><span>Carbs:</span> <span>{dishData.carbs}</span></div>
-				<div className="nutrition-item"><span>Sugar:</span> <span>{dishData.sugar}</span></div>
-			</div>
-		</div>
-	);
+  // Renders the nutrition facts list in the two-column layout
+  const renderNutritionFacts = () => (
+    <div className="nutrition-container">
+      <div className="nutrition-column">
+        <div className="nutrition-item"><span>Calories:</span> <span>{dishData.calories}</span></div>
+        <div className="nutrition-item"><span>Fats:</span> <span>{dishData.fats}</span></div>
+        <div className="nutrition-item"><span>Fiber:</span> <span>{dishData.fiber}</span></div>
+      </div>
+      <div className="nutrition-column">
+        <div className="nutrition-item"><span>Protein:</span> <span>{dishData.protein}</span></div>
+        <div className="nutrition-item"><span>Carbs:</span> <span>{dishData.carbs}</span></div>
+        <div className="nutrition-item"><span>Sugar:</span> <span>{dishData.sugar}</span></div>
+      </div>
+    </div>
+  );
 
-	const globalStyles = `
+  const globalStyles = `
 		/* GLOBAL STYLING: Apply background color to the body and root container */
 		/* The !important flag is essential here to override platform defaults */
 		body, #root, html {
@@ -207,6 +226,34 @@ export default function App({ setCurrentPage, onAnalyzed }: UploadProps) {
 			margin-bottom: 1.5rem;
 			max-width: 900px;
 			width: 100%;
+		}
+
+		.account-bar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			width: 100%;
+			max-width: 900px;
+			margin-bottom: 1rem;
+		}
+
+		.account-bar-links {
+			display: flex;
+			gap: 1rem;
+			align-items: center;
+		}
+
+		.account-link {
+			background: none;
+			border: none;
+			color: #4a5568;
+			font-weight: 600;
+			font-size: 0.9rem;
+			cursor: pointer;
+		}
+
+		.account-link.primary {
+			color: #d61439;
 		}
 
 		/* Wrapper for the main content cards, creating a flexible layout */
@@ -408,64 +455,83 @@ export default function App({ setCurrentPage, onAnalyzed }: UploadProps) {
 		}
 	`;
 
-	return (
-		<>
-			{/* Styles for the entire page. 
+  return (
+    <>
+      {/* Styles for the entire page. 
 				FIX: Switched to dangerouslySetInnerHTML for more reliable CSS injection,
 				which is crucial for overriding host styles. 
 			*/}
-			<style dangerouslySetInnerHTML={{ __html: globalStyles }} />
+      <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
 
-			<div className="nutrition-visualizer-container">
-				<button className="back-button" onClick={() => setCurrentPage('landing')}>
-					← Back to Home
-				</button>
+      <div className="nutrition-visualizer-container">
+        <div className="account-bar">
+          <button className="back-button" style={{ margin: 0, width: 'auto' }} onClick={() => setCurrentPage('landing')}>
+            ← Back to Home
+          </button>
+          <div className="account-bar-links">
+            {user ? (
+              <>
+                <span className="account-link">{user.email}</span>
+                <button className="account-link" onClick={() => setCurrentPage('history')}>
+                  My History
+                </button>
+                <button className="account-link primary" onClick={() => logout()}>
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <button className="account-link primary" onClick={() => setCurrentPage('login')}>
+                Log In to Save History
+              </button>
+            )}
+          </div>
+        </div>
 
-				<div className="content-wrapper">
-					{/* Upload Card */}
-					<div className="card upload-card">
-						<h2 className="card-title">Upload Image</h2>
-						{renderUploadCardContent()}
-					</div>
+        <div className="content-wrapper">
+          {/* Upload Card */}
+          <div className="card upload-card">
+            <h2 className="card-title">Upload Image</h2>
+            {renderUploadCardContent()}
+          </div>
 
-					{/* Results Card */}
-					<div className="card results-card">
-						<h2 className="card-title">Nutrition Breakdown</h2>
-						{(status === 'upload' || status === 'loading') ? (
-							<div className="results-card-content" style={{ marginTop: '20%' }}>
-								<p style={{ color: '#4a5568', fontWeight: '500' }}>
-									{status === 'loading' ? 'Results will appear here...' : 'Upload a meal image to start analysis.'}
-								</p>
-							</div>
-						) : (
-							<div className="results-card-content">
-								{/* Use the uploaded image preview */}
-								<img src={imagePreview ?? undefined}
-									alt={dishData.dishName || 'Analyzed Dish'}
-									className="results-image"
-								/>
+          {/* Results Card */}
+          <div className="card results-card">
+            <h2 className="card-title">Nutrition Breakdown</h2>
+            {(status === 'upload' || status === 'loading') ? (
+              <div className="results-card-content" style={{ marginTop: '20%' }}>
+                <p style={{ color: '#4a5568', fontWeight: '500' }}>
+                  {status === 'loading' ? 'Results will appear here...' : 'Upload a meal image to start analysis.'}
+                </p>
+              </div>
+            ) : (
+              <div className="results-card-content">
+                {/* Use the uploaded image preview */}
+                <img src={imagePreview ?? undefined}
+                  alt={dishData.dishName || 'Analyzed Dish'}
+                  className="results-image"
+                />
 
-								{dishData.dishName && dishData.dishName !== "N/A" ? (
-									<h3 className="dish-name-result">{dishData.dishName}</h3>
-								) : (
-									<h3 className="dish-name-result">Analysis Result</h3>
-								)}
+                {dishData.dishName && dishData.dishName !== "N/A" ? (
+                  <h3 className="dish-name-result">{dishData.dishName}</h3>
+                ) : (
+                  <h3 className="dish-name-result">Analysis Result</h3>
+                )}
 
-								{renderNutritionFacts()}
+                {renderNutritionFacts()}
 
-								{status === 'results' && (
-									<button
-										className="healthy-alternatives-button"
-										onClick={() => setCurrentPage('alternatives')}
-									>
-										View Healthier Alternatives
-									</button>
-								)}
-							</div>
-						)}
-					</div>
-				</div>
-			</div>
-		</>
-	);
+                {status === 'results' && (
+                  <button
+                    className="healthy-alternatives-button"
+                    onClick={() => setCurrentPage('alternatives')}
+                  >
+                    View Healthier Alternatives
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
