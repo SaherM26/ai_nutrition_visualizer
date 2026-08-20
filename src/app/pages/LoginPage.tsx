@@ -1,229 +1,597 @@
-import React, { useState } from 'react';
-import type { PageProps } from './types';
-import { useAuth } from '../context/AuthContext';
+"use client";
 
-// The main application component for the login page
+import React, { useState } from "react";
+import type { PageProps } from "./types";
+import { useAuth } from "../context/AuthContext";
+
 const LoginPage = ({ setCurrentPage }: PageProps) => {
     const { login } = useAuth();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+
+        setError("");
         setSubmitting(true);
-        const result = await login(email, password);
-        setSubmitting(false);
-        if (!result.success) {
-            setError(result.error || 'Login failed.');
-            return;
+
+        try {
+            const result = await login(email, password);
+
+            if (!result.success) {
+                setError(result.error || "Login failed.");
+                return;
+            }
+
+            setCurrentPage("upload");
+        } catch {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setSubmitting(false);
         }
-        setCurrentPage('upload');
     };
 
     return (
-        <>
-            <style>{`
-            /* Container */
-            .login-page-container {
-                 display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                width: 100%;
-                background-image: linear-gradient(rgba(255, 255, 255, 0.10),
-                                rgba(255, 255, 255, 0.6)),
-                                url("/images/login_bg.png");
-                background-size: cover;
-                background-position: center;
-                font-family: 'archivo', sans-serif;
-            }
+        <main className="auth-page">
+            <div className="auth-wrapper">
 
-            /* Card */
-            .login-card {
-                background: white;
-                padding: 2.5rem;
-                border-radius: 1.5rem;
-                box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
-                width: 350px;
-                text-align: center;
-                animation: fadeIn 0.8s ease-in-out;
-            }
+                {/* BRAND */}
+                <button
+                    type="button"
+                    className="auth-brand"
+                    onClick={() => setCurrentPage("landing")}
+                    aria-label="Go to home"
+                >
+                    <span className="auth-brand-mark">✦</span>
 
-            /* Heading */
-            .login-card h1 {
-                color: #4b4b4b;
-                font-size: 2rem;
-                margin-bottom: 1.5rem;
-                font-weight: bold;
-            }
+                    <span className="auth-brand-name">
+                        Nutri<span>Visualizer</span>
+                    </span>
+                </button>
 
-            /* Form */
-            .login-form {
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-            }
+                {/* LOGIN CARD */}
+                <section className="auth-card">
 
-            /* Input fields */
-            .login-input {
-                padding: 0.8rem;
-                border: 1px solid #ccc;
-                border-radius: 2rem;
-                font-size: 1rem;
-                outline: none;
-                transition: border 0.3s, box-shadow 0.3s;
-            }
+                    <h1>Welcome back</h1>
 
-            .login-input:focus {
-                border: 1px solid #e5903d;
-                box-shadow: 0 0 8px rgba(229, 144, 61, 0.3);
-            }
+                    <p className="auth-subtitle">
+                        Sign in to continue understanding what's on your plate.
+                    </p>
 
-            /* Login button */
-            .login-button {
-                background-color: #e59f61;
-                color: white;
-                border: none;
-                padding: 0.8rem;
-                border-radius: 2rem;
-                font-size: 1rem;
-                font-weight: bold;
-                cursor: pointer;
-                transition: transform 0.2s, background 0.3s;
-            }
+                    <form onSubmit={handleLogin} className="auth-form">
 
-            .login-button:hover {
-                transform: scale(1.05);
-                background-color: #d97922;
-            }
-
-            /* Social buttons wrapper */
-            .social-buttons {
-                display: flex;
-                flex-direction: column;
-                gap: 0.8rem;
-                margin-top: 1.5rem;
-            }
-
-            /* Social buttons */
-            .social-button {
-                width: 100%;
-                padding: 0.8rem;
-                border-radius: 2rem;
-                border: none;
-                font-size: 1rem;
-                font-weight: 600;
-                cursor: pointer;
-                transition: transform 0.2s, opacity 0.3s;
-                color: white;
-            }
-
-            /* social button */
-            .google-button , .apple-button {
-                background-color: #99a146 !important;
-            }
-
-            .google-button:hover, .apple-button:hover {
-                transform: scale(1.05);
-                opacity: 0.9;
-                background-color: #6B8E23!important;
-            }
-
-            .back-link {
-                background: none;
-                border: none;
-                color: #6b6b6b;
-                font-size: 0.85rem;
-                cursor: pointer;
-                margin-top: 1.25rem;
-                text-decoration: underline;
-            }
-
-            .signup-link {
-                background: none;
-                border: none;
-                color: #e5903d;
-                font-weight: 600;
-                cursor: pointer;
-                font-size: 0.9rem;
-                margin-top: 0.75rem;
-            }
-
-            .login-error {
-                color: #d61439;
-                font-size: 0.85rem;
-                margin-top: -0.25rem;
-                margin-bottom: -0.5rem;
-            }
-
-            .social-button:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
-            }
-
-            .social-button:disabled:hover {
-                transform: none;
-            }
-
-            /* Animation */
-            @keyframes fadeIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(-20px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-            `}</style>
-
-            <div className="login-page-container">
-                <div className="login-card">
-                    <h1>LOG IN</h1>
-                    <form onSubmit={handleLogin} className="login-form">
                         <input
-                            className="login-input"
+                            className="auth-input"
                             type="email"
-                            placeholder="Email"
+                            placeholder="Email address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="email"
                             required
                         />
+
                         <input
-                            className="login-input"
+                            className="auth-input"
                             type="password"
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
                             required
                         />
-                        {error && <p className="login-error">{error}</p>}
-                        <button type="submit" className="login-button" disabled={submitting}>
-                            {submitting ? 'Logging in...' : 'Login'}
+
+                        {error && (
+                            <p className="auth-error">
+                                {error}
+                            </p>
+                        )}
+
+                        <button
+                            type="submit"
+                            className="auth-primary-button"
+                            disabled={submitting}
+                        >
+                            {submitting ? "Logging in..." : "Log In →"}
                         </button>
+
                     </form>
-                    <div className="social-buttons">
-                        <button className="social-button google-button" disabled title="Coming soon">
-                            Continue with Google
-                        </button>
-                        <button className="social-button apple-button" disabled title="Coming soon">
-                            Continue with Apple
-                        </button>
+
+                    {/* DIVIDER */}
+                    <div className="auth-divider">
+                        <span>OR</span>
                     </div>
-                    <button className="signup-link" onClick={() => setCurrentPage('signup')}>
-                        Don&apos;t have an account? Sign up
+
+                    {/* GOOGLE ONLY */}
+                    <button
+                        type="button"
+                        className="auth-google-button"
+                        disabled
+                        title="Google login coming soon"
+                    >
+                        Continue with Google
                     </button>
-                    <br />
-                    <button className="back-link" onClick={() => setCurrentPage('landing')}>
+
+                    {/* SIGN UP */}
+                    <p className="auth-switch">
+                        Don't have an account?{" "}
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage("signup")}
+                        >
+                            Sign up
+                        </button>
+                    </p>
+
+                    {/* BACK HOME */}
+                    <button
+                        type="button"
+                        className="auth-back"
+                        onClick={() => setCurrentPage("landing")}
+                    >
                         ← Back to Home
                     </button>
-                </div>
+
+                </section>
+
+                {/* FOOTER */}
+                <p className="auth-footer">
+                    © 2025 ErrorBite | All Rights Reserved
+                </p>
+
             </div>
-        </>
+
+            <style jsx>{`
+
+        /* =========================================
+           RESET
+        ========================================= */
+
+        * {
+          box-sizing: border-box;
+        }
+
+        /* =========================================
+           PAGE
+        ========================================= */
+
+        .auth-page {
+          width: 100%;
+          min-height: 100vh;
+          min-height: 100dvh;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          padding: 28px;
+
+          /*
+            YOUR ACTUAL IMAGE:
+            public/images/login_bg.png
+          */
+
+          background-image:
+            linear-gradient(
+              to bottom,
+              rgba(248, 249, 242, 0.05) 0%,
+              rgba(248, 249, 242, 0.05) 48%,
+              rgba(203, 239, 105, 0.58) 100%
+            ),
+            url("/images/login_bg.png");
+
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+
+          overflow: hidden;
+        }
+
+        /* =========================================
+           WRAPPER
+        ========================================= */
+
+        .auth-wrapper {
+          width: 100%;
+          max-width: 470px;
+
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        /* =========================================
+           BRAND
+        ========================================= */
+
+        .auth-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          margin-bottom: 16px;
+
+          padding: 0;
+
+          border: none;
+          background: transparent;
+
+          cursor: pointer;
+        }
+
+        .auth-brand-mark {
+          width: 42px;
+          height: 42px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          border-radius: 13px;
+
+          background: #eef2d4;
+          color: #7c8d09;
+
+          font-size: 21px;
+          font-weight: 800;
+        }
+
+        .auth-brand-name {
+          color: #172019;
+
+          font-size: 27px;
+          font-weight: 800;
+
+          letter-spacing: -0.8px;
+        }
+
+        .auth-brand-name span {
+          color: #7c8d09;
+        }
+
+        /* =========================================
+           CARD
+        ========================================= */
+
+        .auth-card {
+          width: 100%;
+
+          padding: 30px 34px;
+
+          background: rgba(255, 255, 255, 0.97);
+
+          border: 1px solid rgba(225, 228, 215, 0.95);
+
+          border-radius: 24px;
+
+          box-shadow:
+            0 20px 55px rgba(35, 45, 20, 0.14);
+
+          text-align: center;
+        }
+
+        .auth-card h1 {
+          margin: 0;
+
+          color: #172019;
+
+          font-size: 31px;
+          line-height: 1.15;
+          font-weight: 800;
+
+          letter-spacing: -1px;
+        }
+
+        .auth-subtitle {
+          margin: 8px 0 20px;
+
+          color: #718078;
+
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        /* =========================================
+           FORM
+        ========================================= */
+
+        .auth-form {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .auth-input {
+          width: 100%;
+          height: 46px;
+
+          padding: 0 16px;
+
+          border: 1px solid #dfe3d5;
+          border-radius: 13px;
+
+          background: #fbfbf7;
+
+          color: #172019;
+
+          outline: none;
+
+          font-family: inherit;
+          font-size: 14px;
+
+          transition:
+            border-color 0.2s ease,
+            box-shadow 0.2s ease,
+            background 0.2s ease;
+        }
+
+        .auth-input::placeholder {
+          color: #9aa39b;
+        }
+
+        .auth-input:focus {
+          border-color: #aab83c;
+
+          background: #ffffff;
+
+          box-shadow:
+            0 0 0 4px rgba(170, 184, 60, 0.13);
+        }
+
+        /* =========================================
+           ERROR
+        ========================================= */
+
+        .auth-error {
+          margin: 0;
+
+          color: #d7193f;
+
+          font-size: 13px;
+          line-height: 1.4;
+
+          text-align: left;
+        }
+
+        /* =========================================
+           PRIMARY BUTTON
+        ========================================= */
+
+        .auth-primary-button {
+          width: 100%;
+          height: 46px;
+
+          margin-top: 3px;
+
+          border: none;
+          border-radius: 13px;
+
+          background: #e6173b;
+          color: #ffffff;
+
+          font-family: inherit;
+
+          font-size: 15px;
+          font-weight: 800;
+
+          cursor: pointer;
+
+          transition:
+            background 0.2s ease,
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+        }
+
+        .auth-primary-button:hover:not(:disabled) {
+          background: #cf1234;
+
+          transform: translateY(-1px);
+
+          box-shadow:
+            0 8px 20px rgba(230, 23, 59, 0.20);
+        }
+
+        .auth-primary-button:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .auth-primary-button:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        /* =========================================
+           DIVIDER
+        ========================================= */
+
+        .auth-divider {
+          display: flex;
+          align-items: center;
+
+          gap: 12px;
+
+          margin: 17px 0 12px;
+
+          color: #9aa39b;
+
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+          content: "";
+
+          flex: 1;
+
+          height: 1px;
+
+          background: #e3e6dc;
+        }
+
+        /* =========================================
+           GOOGLE
+        ========================================= */
+
+        .auth-google-button {
+          width: 100%;
+          height: 42px;
+
+          border: 1px solid #dfe3d5;
+          border-radius: 12px;
+
+          background: #ffffff;
+
+          color: #68736b;
+
+          font-family: inherit;
+
+          font-size: 14px;
+          font-weight: 700;
+
+          opacity: 0.72;
+
+          cursor: not-allowed;
+        }
+
+        /* =========================================
+           SWITCH
+        ========================================= */
+
+        .auth-switch {
+          margin: 16px 0 0;
+
+          color: #718078;
+
+          font-size: 14px;
+        }
+
+        .auth-switch button {
+          padding: 0;
+
+          border: none;
+          background: transparent;
+
+          color: #7c8d09;
+
+          font-family: inherit;
+
+          font-size: inherit;
+          font-weight: 800;
+
+          cursor: pointer;
+        }
+
+        .auth-switch button:hover {
+          text-decoration: underline;
+        }
+
+        /* =========================================
+           BACK HOME
+        ========================================= */
+
+        .auth-back {
+          margin-top: 10px;
+
+          padding: 6px 0;
+
+          border: none;
+          background: transparent;
+
+          color: #71800a;
+
+          font-family: inherit;
+
+          font-size: 14px;
+          font-weight: 800;
+
+          cursor: pointer;
+
+          transition: color 0.2s ease;
+        }
+
+        .auth-back:hover {
+          color: #596700;
+        }
+
+        /* =========================================
+           FOOTER
+        ========================================= */
+
+        .auth-footer {
+          margin: 10px 0 0;
+
+          color: #7d8880;
+
+          font-size: 11px;
+        }
+
+        /* =========================================
+           MOBILE
+        ========================================= */
+
+        @media (max-width: 600px) {
+
+          .auth-page {
+            min-height: 100vh;
+
+            padding: 22px 15px;
+
+            overflow-y: auto;
+
+            background-position: center;
+          }
+
+          .auth-card {
+            padding: 27px 22px;
+
+            border-radius: 21px;
+          }
+
+          .auth-brand-name {
+            font-size: 23px;
+          }
+
+          .auth-brand-mark {
+            width: 39px;
+            height: 39px;
+          }
+
+          .auth-card h1 {
+            font-size: 28px;
+          }
+
+        }
+
+        @media (max-width: 380px) {
+
+          .auth-page {
+            padding: 18px 12px;
+          }
+
+          .auth-card {
+            padding: 24px 18px;
+          }
+
+          .auth-card h1 {
+            font-size: 26px;
+          }
+
+          .auth-subtitle {
+            font-size: 13px;
+          }
+
+        }
+
+      `}</style>
+        </main>
     );
 };
 

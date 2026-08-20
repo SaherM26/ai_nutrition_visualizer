@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_KEY = process.env.OPENROUTER_API_KEY;
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL_NAME = "openai/gpt-4o-mini";
+const MODEL_NAME = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
 const alternativesJsonSchema = {
     name: "healthier_alternatives",

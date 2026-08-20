@@ -8,9 +8,20 @@ import Upload from "./Upload";
 import Contact from "./Contact";
 import Alternatives from "./alternatives";
 import History from "./History";
+
 import "../css/Landing.css";
-import type { PageType, PageProps, AnalyzedDish } from "./types";
-import { AuthProvider, useAuth } from "../context/AuthContext";
+
+import type {
+    PageType,
+    PageProps,
+    AnalyzedDish,
+} from "./types";
+
+import {
+    AuthProvider,
+    useAuth,
+} from "../context/AuthContext";
+
 
 export default function LandingPage() {
     return (
@@ -20,141 +31,567 @@ export default function LandingPage() {
     );
 }
 
+
+/* =========================================================
+   PAGE ROUTER
+========================================================= */
+
 function LandingPageInner() {
-    const [currentPage, setCurrentPage] = useState<PageType>("landing");
-    // Holds the most recently analyzed dish so the Alternatives page
-    // can reference it without a re-upload.
-    const [analyzedDish, setAnalyzedDish] = useState<AnalyzedDish | null>(null);
+
+    const [currentPage, setCurrentPage] =
+        useState<PageType>("landing");
+
+    const [analyzedDish, setAnalyzedDish] =
+        useState<AnalyzedDish | null>(null);
+
 
     const renderPage = () => {
+
         switch (currentPage) {
+
             case "landing":
-                return <LandingContent setCurrentPage={setCurrentPage} />;
+                return (
+                    <LandingContent
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
+
             case "login":
-                return <LoginPage setCurrentPage={setCurrentPage} />;
+                return (
+                    <LoginPage
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
+
             case "signup":
-                return <SignupPage setCurrentPage={setCurrentPage} />;
+                return (
+                    <SignupPage
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
+
             case "howitworks":
-                return <HowItWorks setCurrentPage={setCurrentPage} />;
+                return (
+                    <HowItWorks
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
+
             case "upload":
                 return (
                     <Upload
                         setCurrentPage={setCurrentPage}
-                        onAnalyzed={(data, image) => setAnalyzedDish({ data, image })}
+                        onAnalyzed={(data, image) => {
+                            setAnalyzedDish({
+                                data,
+                                image,
+                            });
+                        }}
                     />
                 );
+
             case "contact":
-                return <Contact setCurrentPage={setCurrentPage} />;
+                return (
+                    <Contact
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
+
             case "alternatives":
-                return <Alternatives setCurrentPage={setCurrentPage} dish={analyzedDish} />;
+                return (
+                    <Alternatives
+                        setCurrentPage={setCurrentPage}
+                        dish={analyzedDish}
+                    />
+                );
+
             case "history":
-                return <History setCurrentPage={setCurrentPage} />;
+                return (
+                    <History
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
+
             default:
-                return <LandingContent setCurrentPage={setCurrentPage} />;
+                return (
+                    <LandingContent
+                        setCurrentPage={setCurrentPage}
+                    />
+                );
         }
     };
 
-    return <div className="landing-page-container">{renderPage()}</div>;
-}
-
-// A component for the landing page
-const LandingContent: React.FC<PageProps> = ({ setCurrentPage }) => {
-    const { user, logout } = useAuth();
 
     return (
-        <>
-            {/* Header: logo, nav links, auth actions all in one bar */}
+        <div className="landing-page-container">
+            {renderPage()}
+        </div>
+    );
+}
+
+
+/* =========================================================
+   LANDING CONTENT
+========================================================= */
+
+const LandingContent: React.FC<PageProps> = ({
+    setCurrentPage,
+}) => {
+
+    const {
+        user,
+        logout,
+    } = useAuth();
+
+
+    return (
+        <main className="landing-home">
+
+            {/* =================================================
+               NAVBAR
+            ================================================= */}
+
             <header className="site-header">
-                <div className="site-logo" onClick={() => setCurrentPage("landing")}>
-                    🍽️ <span>NutriVisualizer</span>
-                </div>
+
+                <button
+                    className="site-logo"
+                    onClick={() =>
+                        setCurrentPage("landing")
+                    }
+                >
+
+                    <span className="logo-mark">
+                        ✦
+                    </span>
+
+                    <span className="logo-text">
+                        Nutri<span>Visualizer</span>
+                    </span>
+
+                </button>
+
 
                 <nav className="site-nav">
-                    <button className="nav-link" onClick={() => setCurrentPage("howitworks")}>How It Works</button>
-                    <button className="nav-link" onClick={() => setCurrentPage("upload")}>Upload</button>
-                    <button className="nav-link" onClick={() => setCurrentPage("contact")}>Contact</button>
+
+                    <button
+                        className="nav-link"
+                        onClick={() =>
+                            setCurrentPage("howitworks")
+                        }
+                    >
+                        How It Works
+                    </button>
+
+
+                    <button
+                        className="nav-link"
+                        onClick={() =>
+                            setCurrentPage("upload")
+                        }
+                    >
+                        Analyze
+                    </button>
+
+
+                    <button
+                        className="nav-link"
+                        onClick={() =>
+                            setCurrentPage("contact")
+                        }
+                    >
+                        Contact
+                    </button>
+
                 </nav>
 
+
                 <div className="site-auth">
+
                     {user ? (
                         <>
-                            <button className="ghost-button" onClick={() => setCurrentPage("history")}>My History</button>
-                            <button className="solid-button" onClick={() => logout()}>Log Out</button>
+                            <button
+                                className="ghost-button"
+                                onClick={() =>
+                                    setCurrentPage("history")
+                                }
+                            >
+                                My History
+                            </button>
+
+                            <button
+                                className="solid-button"
+                                onClick={() =>
+                                    logout()
+                                }
+                            >
+                                Log Out
+                            </button>
                         </>
                     ) : (
                         <>
-                            <button className="ghost-button" onClick={() => setCurrentPage("login")}>Log In</button>
-                            <button className="solid-button" onClick={() => setCurrentPage("signup")}>Sign Up</button>
+                            <button
+                                className="ghost-button"
+                                onClick={() =>
+                                    setCurrentPage("login")
+                                }
+                            >
+                                Log In
+                            </button>
+
+                            <button
+                                className="solid-button"
+                                onClick={() =>
+                                    setCurrentPage("signup")
+                                }
+                            >
+                                Sign Up
+                            </button>
                         </>
                     )}
+
                 </div>
+
             </header>
 
-            {/* Hero */}
+
+            {/* =================================================
+               MAIN HERO
+            ================================================= */}
+
             <section className="hero-section">
-                <div className="hero-text">
-                    <span className="hero-eyebrow">AI-Powered Nutrition Analysis</span>
-                    <h1 className="main-heading">Know What&apos;s<br />On Your Plate</h1>
-                    <p className="sub-heading">
-                        Snap a photo of any meal and get an instant breakdown of calories,
-                        macros, and healthier alternatives — powered by AI.
+
+                {/* LEFT SIDE */}
+
+                <div className="hero-copy">
+
+                    <div className="hero-eyebrow">
+
+                        <span className="eyebrow-dot" />
+
+                        AI-POWERED FOOD INTELLIGENCE
+
+                    </div>
+
+
+                    <h1>
+
+                        Know what&apos;s
+                        <br />
+
+                        <em>on your plate.</em>
+
+                    </h1>
+
+
+                    <p className="hero-description">
+
+                        Turn a simple meal photo into a clear
+                        nutrition story. Identify your food,
+                        understand its macros, and discover
+                        smarter choices in seconds.
+
                     </p>
-                    <div className="hero-cta-group">
-                        <button className="cta-primary" onClick={() => setCurrentPage("upload")}>
-                            Analyze a Meal →
+
+
+                    <div className="hero-buttons">
+
+                        <button
+                            className="primary-button"
+                            onClick={() =>
+                                setCurrentPage("upload")
+                            }
+                        >
+
+                            Analyze My Meal
+
+                            <span>→</span>
+
                         </button>
-                        <button className="cta-secondary" onClick={() => setCurrentPage("howitworks")}>
+
+
+                        <button
+                            className="secondary-button"
+                            onClick={() =>
+                                setCurrentPage("howitworks")
+                            }
+                        >
                             See How It Works
                         </button>
+
                     </div>
+
+
+                    <div className="trust-row">
+
+                        <span>
+                            ✦ AI vision analysis
+                        </span>
+
+                        <span>•</span>
+
+                        <span>
+                            Nutrition insights
+                        </span>
+
+                        <span>•</span>
+
+                        <span>
+                            Smarter choices
+                        </span>
+
+                    </div>
+
                 </div>
 
-                <div className="image-and-annotations-container">
-                    <div className="hero-image-glow" />
-                    <img
-                        src="/images/food-platter.jpg"
-                        alt="A delicious platter of various healthy foods"
-                        className="main-image"
-                    />
 
-                    <div className="annotation top-right-annotation">
-                        <span className="annotation-text">📊 Full Nutrition Breakdown</span>
-                    </div>
-                    <div className="annotation bottom-left-annotation">
-                        <span className="annotation-text">⚡ Results in Seconds</span>
+                {/* RIGHT SIDE */}
+
+                <div className="hero-visual">
+
+                    <div className="visual-glow" />
+
+
+                    {/* FOOD IMAGE */}
+
+                    <div className="food-image-card">
+
+                        <img
+                            src="/images/food-platter.jpg"
+                            alt="Healthy food platter"
+                        />
+
+                        <div className="image-overlay" />
+
+                        <div className="image-status">
+
+                            <span />
+
+                        </div>
+
                     </div>
 
-                    <div className="leaf leaf-1">
-                        <img src="/images/leaves.png" alt="Decorative leaf" width={80} height={80} />
+
+                    {/* AI RESULT CARD */}
+
+                    <div className="ai-card">
+
+                        <div className="ai-card-header">
+
+                            <div>
+
+                                <span>
+                                    AI ANALYSIS
+                                </span>
+
+                                <h3>
+                                    Grilled Salmon
+                                </h3>
+
+                                <p>
+                                    Mediterranean • Dinner
+                                </p>
+
+                            </div>
+
+
+                            <div className="ai-badge">
+                                ✓ AI
+                            </div>
+
+                        </div>
+
+
+                        <div className="macro-grid">
+
+                            <div>
+                                <strong>450</strong>
+                                <small>kcal</small>
+                            </div>
+
+                            <div>
+                                <strong>35g</strong>
+                                <small>protein</small>
+                            </div>
+
+                            <div>
+                                <strong>20g</strong>
+                                <small>carbs</small>
+                            </div>
+
+                            <div>
+                                <strong>25g</strong>
+                                <small>fat</small>
+                            </div>
+
+                        </div>
+
+
+                        <div className="score-section">
+
+                            <div className="score-heading">
+
+                                <span>
+                                    HEALTH SCORE
+                                </span>
+
+                                <strong>
+                                    85
+                                    <small>/100</small>
+                                </strong>
+
+                            </div>
+
+
+                            <div className="score-bar">
+                                <span />
+                            </div>
+
+                        </div>
+
                     </div>
-                    <div className="leaf leaf-2">
-                        <img src="/images/leaves.png" alt="Decorative leaf" width={80} height={80} />
+
+
+                    {/* FLOATING LABELS */}
+
+                    <div className="floating-label nutrition-label">
+
+                        <span>✦</span>
+
+                        Full nutrition breakdown
+
+                    </div>
+
+
+                    <div className="floating-label speed-label">
+
+                        <span>⚡</span>
+
+                        Results in seconds
+
                     </div>
                 </div>
             </section>
 
-            {/* Feature highlights */}
-            <section className="feature-strip">
-                <div className="feature-card">
-                    <span className="feature-icon">📸</span>
-                    <h3>Snap a Photo</h3>
-                    <p>Upload or drag in any meal photo — no manual logging required.</p>
+
+
+            {/* =================================================
+               AI CAPABILITIES
+            ================================================= */}
+
+            <section className="capabilities">
+
+                <div className="capability-card">
+
+                    <div className="capability-icon">
+                        ◉
+                    </div>
+
+                    <div>
+
+                        <span>
+                            01
+                        </span>
+
+                        <h3>
+                            AI Food Recognition
+                        </h3>
+
+                        <p>
+                            Identify the foods and ingredients
+                            in your meal automatically.
+                        </p>
+
+                    </div>
+
                 </div>
-                <div className="feature-card">
-                    <span className="feature-icon">🧠</span>
-                    <h3>AI Analyzes It</h3>
-                    <p>Get calories, protein, carbs, fats, fiber, and sugar in seconds.</p>
+
+
+                <div className="capability-card featured">
+
+                    <div className="capability-icon">
+                        ✦
+                    </div>
+
+                    <div>
+
+                        <span>
+                            02
+                        </span>
+
+                        <h3>
+                            Nutrition Breakdown
+                        </h3>
+
+                        <p>
+                            Calories, protein, carbs, fats
+                            and more in one clear view.
+                        </p>
+
+                    </div>
+
                 </div>
-                <div className="feature-card">
-                    <span className="feature-icon">🥗</span>
-                    <h3>Eat Smarter</h3>
-                    <p>See healthier alternatives and track your history over time.</p>
+
+
+                <div className="capability-card">
+
+                    <div className="capability-icon">
+                        ↗
+                    </div>
+
+                    <div>
+
+                        <span>
+                            03
+                        </span>
+
+                        <h3>
+                            Smarter Choices
+                        </h3>
+
+                        <p>
+                            Get useful recommendations and
+                            healthier alternatives.
+                        </p>
+
+                    </div>
+
                 </div>
+
             </section>
+
+
+            {/* =================================================
+               FOOTER
+            ================================================= */}
 
             <footer className="site-footer">
-                <p className="copyright-text">© 2025 ErrorBite | All Rights Reserved</p>
+
+                <div className="footer-brand">
+
+                    <span className="logo-mark">
+                        ✦
+                    </span>
+
+                    NutriVisualizer
+
+                </div>
+
+
+                <p>
+                    © 2026 NutriVisualizer | All Rights Reserved
+                </p>
+
+
+                <button
+                    onClick={() =>
+                        setCurrentPage("contact")
+                    }
+                >
+                    Contact
+                </button>
+
             </footer>
-        </>
+
+        </main>
     );
 };

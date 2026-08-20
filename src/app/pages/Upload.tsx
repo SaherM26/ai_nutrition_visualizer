@@ -1,537 +1,1155 @@
-import React, { useState } from 'react';
-import type { PageProps, DishData } from './types';
-import { useAuth } from '../context/AuthContext';
+"use client";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+import React, {
+	ChangeEvent,
+	DragEvent,
+	useState,
+} from "react";
 
-/**
- * Calls our own server-side API route, which holds the Gemini key.
- * The browser never sees the API key.
- */
-const getNutritionFacts = async (base64Image: string): Promise<DishData> => {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: base64Image }),
-  });
+import type {
+	DishData,
+	PageType,
+} from "./types";
 
-  const result = await response.json();
+import "../css/Upload.css";
 
-  if (!response.ok) {
-    throw new Error(result?.error || `Request failed with status ${response.status}`);
-  }
+import { useAuth } from "../context/AuthContext";
 
-  return result as DishData;
+type UploadProps = {
+	setCurrentPage: (page: PageType) => void;
+	onAnalyzed?: (data: DishData, image: string) => void;
 };
 
-/** Persists an analyzed meal to the logged-in user's history. Silently no-ops on failure. */
-const saveMealToHistory = async (data: DishData, image: string) => {
-  try {
-    await fetch('/api/meals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, image }),
-    });
-  } catch (error) {
-    // Don't block the UI on history save failures — the user still gets their result.
-    console.error('Failed to save meal to history:', error);
-  }
-};
+const Upload: React.FC<UploadProps> = ({
+	setCurrentPage,
+	onAnalyzed,
+}) => {
+	const { user } = useAuth();
 
-type Status = 'upload' | 'loading' | 'results' | 'error';
+	const [selectedImage, setSelectedImage] =
+		useState<string | null>(null);
 
-const emptyDishData: DishData = {
-  dishName: "", calories: "", protein: "", fats: "",
-  carbs: "", fiber: "", sugar: ""
-};
+	const [fileName, setFileName] = useState("");
 
-interface UploadProps extends PageProps {
-  onAnalyzed?: (data: DishData, image: string) => void;
-}
+	const [isAnalyzing, setIsAnalyzing] =
+		useState(false);
 
-// Main component for the Nutrition Visualizer application
-export default function App({ setCurrentPage, onAnalyzed }: UploadProps) {
-  const { user, logout } = useAuth();
-  // State to manage the application flow: 'upload', 'loading', 'results', 'error'
-  const [status, setStatus] = useState<Status>('upload');
-  // Stores the Base64 image data for preview and API call
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  // Stores the fetched nutrition data
-  const [dishData, setDishData] = useState<DishData>(emptyDishData);
-  // Stores any user-facing error message
-  const [errorMessage, setErrorMessage] = useState('');
+	const [isSaving, setIsSaving] =
+		useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+	const [analysis, setAnalysis] =
+		useState<DishData | null>(null);
 
-    // Validate type before we ever touch the network
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setErrorMessage('Please upload a JPEG, PNG, WEBP, or HEIC image.');
-      setStatus('error');
-      return;
-    }
+	const [error, setError] =
+		useState("");
 
-    // Validate size before we ever touch the network
-    if (file.size > MAX_FILE_BYTES) {
-      setErrorMessage('Image is too large. Please upload something under 8MB.');
-      setStatus('error');
-      return;
-    }
+	const [isDragging, setIsDragging] =
+		useState(false);
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Image = reader.result as string;
-      setImagePreview(base64Image);
-      setStatus('loading');
-      setErrorMessage(''); // Clear previous errors
+	/* =========================================================
+	   READ IMAGE
+	========================================================= */
 
-      try {
-        const nutrition = await getNutritionFacts(base64Image);
-        setDishData(nutrition);
-        setStatus('results');
-        onAnalyzed?.(nutrition, base64Image);
-        if (user) {
-          saveMealToHistory(nutrition, base64Image);
-        }
-      } catch (error) {
-        console.error("Analysis Error:", error);
-        // Display a user-friendly error
-        setErrorMessage("The AI failed to analyze the image. Please try another image or check the console for details.");
-
-        // Set default empty data on failure
-        setDishData({
-          dishName: "N/A", calories: "N/A", protein: "N/A", fats: "N/A",
-          carbs: "N/A", fiber: "N/A", sugar: "N/A"
-        });
-        setStatus('error');
-      }
-    };
-    reader.onerror = () => {
-      setErrorMessage('Could not read that file. Please try another image.');
-      setStatus('error');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleClear = () => {
-    // Reset the state to the initial upload screen
-    setImagePreview(null);
-    setStatus('upload');
-    setErrorMessage('');
-    // Clear file input value
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement | null;
-    if (fileInput) fileInput.value = '';
-    // Reset dish data to empty strings
-    setDishData(emptyDishData);
-  };
-
-  // Render the content inside the Upload card
-  const renderUploadCardContent = () => {
-    // Show loading spinner when analyzing
-    if (status === 'loading') {
-      return (
-        <div className="upload-card-content loading-state">
-          <div className="spinner"></div>
-          <span className="upload-text" style={{ marginTop: '2rem' }}>Analyzing your meal...</span>
-        </div>
-      );
-    }
-
-    // Default upload or error display state
-    return (
-      <div className="upload-card-content default-upload">
-        <label htmlFor="file-upload" className="camera-icon-container">
-          {/* Camera Icon SVG */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="80"
-            height="80"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="upload-icon"
-          >
-            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-            <circle cx="12" cy="13" r="3" />
-          </svg>
-          <input id="file-upload" type="file" accept="image/*" className="hidden-file-input" onChange={handleFileUpload} />
-        </label>
-
-        {/* Display main text or error message */}
-        <span className="upload-text" style={{ color: status === 'error' ? '#d61439' : '#4a5568' }}>
-          {status === 'error' ? errorMessage : 'Drag and Drop or Tap to Upload'}
-        </span>
-
-        {/* Clear button only visible once an image has been uploaded (status is 'results' or 'error') */}
-        {status !== 'upload' && (
-          <button className="clear-button" onClick={handleClear}>
-            Clear
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  // Renders the nutrition facts list in the two-column layout
-  const renderNutritionFacts = () => (
-    <div className="nutrition-container">
-      <div className="nutrition-column">
-        <div className="nutrition-item"><span>Calories:</span> <span>{dishData.calories}</span></div>
-        <div className="nutrition-item"><span>Fats:</span> <span>{dishData.fats}</span></div>
-        <div className="nutrition-item"><span>Fiber:</span> <span>{dishData.fiber}</span></div>
-      </div>
-      <div className="nutrition-column">
-        <div className="nutrition-item"><span>Protein:</span> <span>{dishData.protein}</span></div>
-        <div className="nutrition-item"><span>Carbs:</span> <span>{dishData.carbs}</span></div>
-        <div className="nutrition-item"><span>Sugar:</span> <span>{dishData.sugar}</span></div>
-      </div>
-    </div>
-  );
-
-  const globalStyles = `
-		/* GLOBAL STYLING: Apply background color to the body and root container */
-		/* The !important flag is essential here to override platform defaults */
-		body, #root, html {
-			background-color: #f6f9e8 !important; 
-			margin: 0;
-			padding: 0;
-			height: 100%;
+	const readFile = (file: File) => {
+		if (!file.type.startsWith("image/")) {
+			setError("Please upload a valid image file.");
+			return;
 		}
 
-		/* Overall page container, centered with the new background color */
-		.nutrition-visualizer-container {
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-			align-items: center;
-			min-height: 100vh;
-			font-family: 'Inter', sans-serif;
-			padding: 2rem;
-			box-sizing: border-box;
+		if (file.size > 8 * 1024 * 1024) {
+			setError("Image must be smaller than 8MB.");
+			return;
 		}
 
-		.back-button {
-			align-self: flex-start;
-			background: none;
-			border: none;
-			color: #d61439;
-			font-weight: 600;
-			font-size: 1rem;
-			cursor: pointer;
-			margin-bottom: 1.5rem;
-			max-width: 900px;
-			width: 100%;
-		}
+		setError("");
+		setFileName(file.name);
 
-		.account-bar {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			width: 100%;
-			max-width: 900px;
-			margin-bottom: 1rem;
-		}
+		const reader = new FileReader();
 
-		.account-bar-links {
-			display: flex;
-			gap: 1rem;
-			align-items: center;
-		}
+		reader.onload = () => {
+			const result = reader.result;
 
-		.account-link {
-			background: none;
-			border: none;
-			color: #4a5568;
-			font-weight: 600;
-			font-size: 0.9rem;
-			cursor: pointer;
-		}
+			if (typeof result === "string") {
+				setSelectedImage(result);
+				setAnalysis(null);
 
-		.account-link.primary {
-			color: #d61439;
-		}
-
-		/* Wrapper for the main content cards, creating a flexible layout */
-		.content-wrapper {
-			display: flex;
-			flex-direction: column;
-			gap: 2.5rem;
-			width: 100%;
-			max-width: 900px;
-		}
-
-		/* Responsive layout for larger screens */
-		@media (min-width: 768px) {
-			.content-wrapper {
-				flex-direction: row;
+				// Automatically analyze after image loads
+				analyzeMeal(result);
 			}
+		};
+
+		reader.onerror = () => {
+			setError(
+				"Could not read that file. Please try another image."
+			);
+		};
+
+		reader.readAsDataURL(file);
+	};
+
+	/* =========================================================
+	   FILE INPUT
+	========================================================= */
+
+	const handleFileChange = (
+		event: ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+
+		if (file) {
+			readFile(file);
+		}
+	};
+
+	/* =========================================================
+	   DRAG & DROP
+	========================================================= */
+
+	const handleDrop = (
+		event: DragEvent<HTMLDivElement>
+	) => {
+		event.preventDefault();
+
+		setIsDragging(false);
+
+		const file =
+			event.dataTransfer.files?.[0];
+
+		if (file) {
+			readFile(file);
+		}
+	};
+
+	/* =========================================================
+	   SAVE MEAL TO HISTORY
+	========================================================= */
+
+	const saveMealToHistory = async (
+		nutrition: DishData,
+		image: string
+	) => {
+		/*
+		 * Only authenticated users can save meals.
+		 *
+		 * Guests can still analyze meals normally.
+		 */
+		if (!user) {
+			return true;
 		}
 
-		/* Common styling for the card components */
-		.card {
-			background-color: white;
-			padding: 2rem;
-			border-radius: 1.5rem;
-			box-shadow: 0 10px 20px rgba(0, 0, 0, 0.04);
-			flex: 1;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			min-height: 480px; /* Ensures vertical balance */
-		}
+		setIsSaving(true);
 
-		.card-title {
-			font-size: 1.5rem;
-			font-weight: 700;
-			color: #4a5568;
-			margin-bottom: 2rem;
-		}
+		try {
+			const response = await fetch(
+				"/api/meals",
+				{
+					method: "POST",
 
-		/* --- Upload Card Specific Styles --- */
-		.upload-card-content {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			flex-grow: 1;
-			width: 100%;
-		}
+					headers: {
+						"Content-Type":
+							"application/json",
+					},
 
-		.camera-icon-container {
-			display: block;
-			cursor: pointer;
-			margin-bottom: 1rem;
-			border: 3px solid transparent; 
-			border-radius: 0.5rem;
-			transition: border-color 0.2s;
-			line-height: 1; 
-		}
-		
-		.camera-icon-container:hover, .camera-icon-container:focus {
-				border-color: #99a146; /* Changed hover color to match app's theme */
+					body: JSON.stringify({
+						dishName:
+							nutrition.dishName,
+
+						calories:
+							nutrition.calories,
+
+						protein:
+							nutrition.protein,
+
+						fats:
+							nutrition.fats,
+
+						carbs:
+							nutrition.carbs,
+
+						fiber:
+							nutrition.fiber,
+
+						sugar:
+							nutrition.sugar,
+
+						image,
+					}),
+				}
+			);
+
+			const result =
+				await response.json();
+
+			if (!response.ok) {
+				console.error(
+					"Meal history save failed:",
+					result
+				);
+
+				setError(
+					"Meal analyzed successfully, but it could not be saved to your history."
+				);
+
+				return false;
 			}
 
+			console.log(
+				"Meal successfully saved to history."
+			);
 
-		.upload-icon {
-			height: 80px;
-			width: 80px;
-			color: black;
-			stroke-width: 1;
+			return true;
+		} catch (error) {
+			console.error(
+				"Saving meal to history failed:",
+				error
+			);
+
+			setError(
+				"Meal analyzed successfully, but it could not be saved to your history."
+			);
+
+			return false;
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	/* =========================================================
+	   ANALYZE MEAL
+	========================================================= */
+
+	const analyzeMeal = async (
+		imageOverride?: string
+	) => {
+		const imageToAnalyze =
+			imageOverride ?? selectedImage;
+
+		if (!imageToAnalyze) {
+			setError(
+				"Please upload a meal image first."
+			);
+
+			return;
 		}
 
-		.upload-text {
-			font-size: 1.25rem;
-			font-weight: 500;
-			color: #4a5568;
-			margin-top: 0.5rem;
-			margin-bottom: 2rem;
-			text-align: center;
-		}
-		
-		.hidden-file-input {
-			display: none;
-		}
+		setIsAnalyzing(true);
+		setError("");
+		setAnalysis(null);
 
-		.clear-button {
-			background-color: #99a146;
-			color: white;
-			font-weight: 600;
-			padding: 0.75rem 2.5rem;
-			border: none;
-			border-radius: 0.5rem;
-			cursor: pointer;
-			transition: background-color 0.3s;
-			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		}
+		try {
+			/* -----------------------------------------
+			   AI ANALYSIS
+			----------------------------------------- */
 
-		.clear-button:hover {
-			background-color: #7d8438;
-		}
-		
-		/* Loading Spinner Styles */
-		.spinner {
-			border: 8px solid #f3f3f3; 
-			border-top: 8px solid #99a146; 
-			border-radius: 50%;
-			width: 60px;
-			height: 60px;
-			animation: spin 1.5s linear infinite;
-			margin-bottom: 1rem;
-		}
+			const response = await fetch(
+				"/api/analyze",
+				{
+					method: "POST",
 
-		@keyframes spin {
-			0% { transform: rotate(0deg); }
-			100% { transform: rotate(360deg); }
-		}
-		/* End Loading Spinner Styles */
+					headers: {
+						"Content-Type":
+							"application/json",
+					},
 
-		/* --- Results Card Specific Styles --- */
-		.results-card-content {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			text-align: center;
-			gap: 1.5rem;
-			width: 100%;
-		}
+					body: JSON.stringify({
+						image: imageToAnalyze,
+					}),
+				}
+			);
 
-		.results-image {
-			width: 90%;
-			max-width: 350px;
-			height: auto;
-			min-height: 150px; /* Ensure space when image is loading */
-			border-radius: 0.75rem;
-			object-fit: cover;
-			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-		}
+			const result =
+				await response.json();
 
-		.dish-name-result {
-			font-size: 1.25rem;
-			font-weight: 700;
-			color: #d61439; 
-			line-height: 1.4;
-		}
+			if (!response.ok) {
+				throw new Error(
+					result?.error ||
+					"Unable to analyze the meal."
+				);
+			}
 
-		/* Container for the two-column nutrition facts layout */
-		.nutrition-container {
-				display: flex;
-				gap: 2rem;
-				justify-content: center;
-				width: 100%;
-				max-width: 350px;
-				margin-bottom: 1rem;
-				padding: 0 1rem;
-		}
-		
-		.nutrition-column {
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-				flex: 1;
-				min-width: 100px;
-		}
+			/* -----------------------------------------
+			   SHOW RESULTS
+			----------------------------------------- */
 
-		.nutrition-item {
-			display: flex;
-			justify-content: space-between;
-			font-size: 1rem;
-			color: #4a5568;
-			width: 100%;
-			border-bottom: 1px dashed #eee;
-			padding-bottom: 0.25rem;
+			setAnalysis(result);
+
+			/* -----------------------------------------
+			   UPDATE PARENT
+			----------------------------------------- */
+
+			if (onAnalyzed) {
+				onAnalyzed(
+					result,
+					imageToAnalyze
+				);
+			}
+
+			/* -----------------------------------------
+			   SAVE TO HISTORY
+			----------------------------------------- */
+
+			await saveMealToHistory(
+				result,
+				imageToAnalyze
+			);
+
+		} catch (err) {
+			console.error(
+				"Meal analysis error:",
+				err
+			);
+
+			setError(
+				err instanceof Error
+					? err.message
+					: "Something went wrong while analyzing the meal."
+			);
+		} finally {
+			setIsAnalyzing(false);
 		}
-		
-		.nutrition-item span:first-child {
-				font-weight: 400;
-				margin-right: 0.5rem;
+	};
+
+	/* =========================================================
+	   CLEAR
+	========================================================= */
+
+	const clearAnalysis = () => {
+		setSelectedImage(null);
+		setFileName("");
+		setAnalysis(null);
+		setError("");
+		setIsSaving(false);
+	};
+
+	/* =========================================================
+	   HEALTH SCORE LABEL
+	========================================================= */
+
+	const scoreLabel = (
+		score?: number | null
+	) => {
+		if (
+			score === undefined ||
+			score === null
+		) {
+			return "—";
 		}
 
-		.nutrition-item span:last-child {
-				font-weight: 700;
-				color: #4a5568;
-				text-align: right;
+		if (score >= 90) return "Excellent";
+		if (score >= 75) return "Good";
+		if (score >= 60) return "Moderate";
+		if (score >= 40)
+			return "Needs Improvement";
+
+		return "Poor";
+	};
+
+	/* =========================================================
+	   BALANCE WIDTH
+	========================================================= */
+
+	const balanceWidth = (
+		value?: string
+	) => {
+		switch (value) {
+			case "low":
+				return "30%";
+
+			case "moderate":
+				return "55%";
+
+			case "good":
+				return "78%";
+
+			case "high":
+				return "95%";
+
+			default:
+				return "50%";
 		}
+	};
 
-		.healthy-alternatives-button {
-			background-color: #d51439;
-			color: white;
-			font-weight: 600;
-			padding: 0.75rem 1.5rem;
-			border: none;
-			border-radius: 0.5rem;
-			cursor: pointer;
-			transition: background-color 0.3s;
-			box-shadow: 0 4px 6px rgba(213, 20, 57, 0.3);
-			margin-top: 1rem;
-		}
+	/* =========================================================
+	   PAGE
+	========================================================= */
 
-		.healthy-alternatives-button:hover {
-			background-color: #b0102d;
-		}
-	`;
+	return (
+		<div className="upload-page">
 
-  return (
-    <>
-      {/* Styles for the entire page. 
-				FIX: Switched to dangerouslySetInnerHTML for more reliable CSS injection,
-				which is crucial for overriding host styles. 
-			*/}
-      <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
+			{/* =================================================
+			   TOP BAR
+			================================================= */}
 
-      <div className="nutrition-visualizer-container">
-        <div className="account-bar">
-          <button className="back-button" style={{ margin: 0, width: 'auto' }} onClick={() => setCurrentPage('landing')}>
-            ← Back to Home
-          </button>
-          <div className="account-bar-links">
-            {user ? (
-              <>
-                <span className="account-link">{user.email}</span>
-                <button className="account-link" onClick={() => setCurrentPage('history')}>
-                  My History
-                </button>
-                <button className="account-link primary" onClick={() => logout()}>
-                  Log Out
-                </button>
-              </>
-            ) : (
-              <button className="account-link primary" onClick={() => setCurrentPage('login')}>
-                Log In to Save History
-              </button>
-            )}
-          </div>
-        </div>
+			<header className="upload-header">
 
-        <div className="content-wrapper">
-          {/* Upload Card */}
-          <div className="card upload-card">
-            <h2 className="card-title">Upload Image</h2>
-            {renderUploadCardContent()}
-          </div>
+				<button
+					className="back-home-button"
+					onClick={() =>
+						setCurrentPage("landing")
+					}
+					type="button"
+				>
+					← Back to Home
+				</button>
 
-          {/* Results Card */}
-          <div className="card results-card">
-            <h2 className="card-title">Nutrition Breakdown</h2>
-            {(status === 'upload' || status === 'loading') ? (
-              <div className="results-card-content" style={{ marginTop: '20%' }}>
-                <p style={{ color: '#4a5568', fontWeight: '500' }}>
-                  {status === 'loading' ? 'Results will appear here...' : 'Upload a meal image to start analysis.'}
-                </p>
-              </div>
-            ) : (
-              <div className="results-card-content">
-                {/* Use the uploaded image preview */}
-                <img src={imagePreview ?? undefined}
-                  alt={dishData.dishName || 'Analyzed Dish'}
-                  className="results-image"
-                />
+				{user ? (
+					<button
+						className="history-login-button"
+						onClick={() =>
+							setCurrentPage("history")
+						}
+						type="button"
+					>
+						{isSaving
+							? "Saving to History..."
+							: "View My History"}
+					</button>
+				) : (
+					<button
+						className="history-login-button"
+						onClick={() =>
+							setCurrentPage("login")
+						}
+						type="button"
+					>
+						Log In to Save History
+					</button>
+				)}
 
-                {dishData.dishName && dishData.dishName !== "N/A" ? (
-                  <h3 className="dish-name-result">{dishData.dishName}</h3>
-                ) : (
-                  <h3 className="dish-name-result">Analysis Result</h3>
-                )}
+			</header>
 
-                {renderNutritionFacts()}
+			{/* =================================================
+			   INTRO
+			================================================= */}
 
-                {status === 'results' && (
-                  <button
-                    className="healthy-alternatives-button"
-                    onClick={() => setCurrentPage('alternatives')}
-                  >
-                    View Healthier Alternatives
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
+			<section className="upload-intro">
+
+				<span className="upload-eyebrow">
+					AI FOOD INTELLIGENCE
+				</span>
+
+				<h1>
+					Understand Your Meal
+				</h1>
+
+				<p>
+					Upload a photo and let AI identify
+					your food, estimate nutrition, and
+					give you practical insights.
+				</p>
+
+			</section>
+
+			{/* =================================================
+			   DASHBOARD
+			================================================= */}
+
+			<main className="upload-dashboard">
+
+				{/* =================================================
+				   LEFT PANEL
+				================================================= */}
+
+				<section className="meal-panel">
+
+					<div className="panel-heading">
+
+						<h2>
+							Meal Image
+						</h2>
+
+						<span className="ai-badge">
+							AI VISION
+						</span>
+
+					</div>
+
+					{!selectedImage ? (
+
+						<div
+							className={`upload-dropzone ${isDragging
+									? "upload-dropzone-active"
+									: ""
+								}`}
+							onDragOver={(event) => {
+								event.preventDefault();
+								setIsDragging(true);
+							}}
+							onDragLeave={() => {
+								setIsDragging(false);
+							}}
+							onDrop={handleDrop}
+						>
+
+							<input
+								id="meal-upload"
+								type="file"
+								accept="image/jpeg,image/png,image/webp,image/heic"
+								onChange={
+									handleFileChange
+								}
+							/>
+
+							<label htmlFor="meal-upload">
+
+								<div className="upload-icon">
+									📸
+								</div>
+
+								<h3>
+									Upload your meal
+								</h3>
+
+								<p>
+									Click to choose a
+									food photo
+								</p>
+
+								<small>
+									JPG · PNG · WEBP · HEIC · Max 8MB
+								</small>
+
+							</label>
+
+						</div>
+
+					) : (
+
+						<div className="image-preview-wrapper">
+
+							<img
+								src={selectedImage}
+								alt="Uploaded meal"
+								className="meal-preview"
+							/>
+
+							<div className="image-preview-overlay">
+								{fileName}
+							</div>
+
+						</div>
+
+					)}
+
+					{analysis && (
+						<button
+							className="analyze-another-button"
+							onClick={
+								clearAnalysis
+							}
+							type="button"
+						>
+							Analyze Another Meal
+						</button>
+					)}
+
+				</section>
+
+				{/* =================================================
+				   RIGHT PANEL
+				================================================= */}
+
+				<section className="analysis-panel">
+
+					<div className="analysis-heading">
+
+						<h2>
+							AI Analysis
+						</h2>
+
+						{analysis && (
+							<span className="analysis-complete">
+								✓ ANALYSIS COMPLETE
+							</span>
+						)}
+
+					</div>
+
+					{/* =================================================
+					   LOADING
+					================================================= */}
+
+					{isAnalyzing ? (
+
+						<div className="analysis-loading">
+
+							<div className="loading-brain">
+								🧠
+							</div>
+
+							<h3>
+								Understanding your meal...
+							</h3>
+
+							<p>
+								AI is identifying ingredients,
+								estimating nutrition and evaluating
+								the balance of your meal.
+							</p>
+
+							<div className="loading-progress">
+								<span />
+							</div>
+
+							{isSaving && (
+								<small
+									style={{
+										display: "block",
+										marginTop: "12px",
+										opacity: 0.7,
+									}}
+								>
+									Saving your meal to history...
+								</small>
+							)}
+
+						</div>
+
+					) : !analysis ? (
+
+						<div className="analysis-empty">
+
+							<div className="empty-brain">
+								🧠
+							</div>
+
+							<h3>
+								Your AI results
+							</h3>
+
+							<p>
+								Upload a meal photo and
+								your complete nutrition
+								analysis will appear here.
+							</p>
+
+						</div>
+
+					) : (
+
+						<div className="analysis-content">
+
+							{/* =================================================
+							   DISH HEADER
+							================================================= */}
+
+							<div className="dish-header">
+
+								<h1>
+									{analysis.dishName ||
+										"Unknown meal"}
+								</h1>
+
+								<div className="dish-tags">
+
+									<span>
+										🌎{" "}
+										{analysis.cuisine ||
+											"Unknown"}
+									</span>
+
+									<span>
+										🍽️{" "}
+										{analysis.mealType ||
+											"Meal"}
+									</span>
+
+									<span>
+										⚖️{" "}
+										{analysis.portionSize ||
+											"Estimated portion"}
+									</span>
+
+								</div>
+
+							</div>
+
+							{/* =================================================
+							   NUTRITION
+							================================================= */}
+
+							<div className="nutrition-grid">
+
+								<NutritionCard
+									icon="🔥"
+									label="Calories"
+									value={
+										analysis.calories
+									}
+								/>
+
+								<NutritionCard
+									icon="💪"
+									label="Protein"
+									value={
+										analysis.protein
+									}
+								/>
+
+								<NutritionCard
+									icon="🍚"
+									label="Carbs"
+									value={
+										analysis.carbs
+									}
+								/>
+
+								<NutritionCard
+									icon="🥑"
+									label="Fat"
+									value={
+										analysis.fats
+									}
+								/>
+
+								<NutritionCard
+									icon="🌾"
+									label="Fiber"
+									value={
+										analysis.fiber
+									}
+								/>
+
+								<NutritionCard
+									icon="🍓"
+									label="Sugar"
+									value={
+										analysis.sugar
+									}
+								/>
+
+							</div>
+
+							{/* =================================================
+							   SCORES
+							================================================= */}
+
+							<div className="score-grid">
+
+								<ScoreCard
+									title="HEALTH SCORE"
+									score={
+										analysis.healthScore
+									}
+									label={scoreLabel(
+										analysis.healthScore
+									)}
+								/>
+
+								<ScoreCard
+									title="AI CONFIDENCE"
+									score={
+										analysis.confidence
+									}
+									label="Based on visible food evidence"
+								/>
+
+							</div>
+
+							{/* =================================================
+							   INGREDIENTS
+							================================================= */}
+
+							{analysis.ingredients &&
+								analysis.ingredients.length >
+								0 && (
+
+									<div className="compact-section">
+
+										<h3>
+											🥕 Detected Ingredients
+										</h3>
+
+										<div className="ingredient-list">
+
+											{analysis.ingredients
+												.slice(0, 8)
+												.map(
+													(
+														ingredient,
+														index
+													) => (
+														<span
+															key={`${ingredient}-${index}`}
+														>
+															{ingredient}
+														</span>
+													)
+												)}
+
+										</div>
+
+									</div>
+								)}
+
+							{/* =================================================
+							   AI INSIGHT
+							================================================= */}
+
+							{analysis.explanation && (
+								<div className="insight-section">
+
+									<h3>
+										🧠 AI Insight
+									</h3>
+
+									<p>
+										{
+											analysis.explanation
+										}
+									</p>
+
+								</div>
+							)}
+
+							{/* =================================================
+							   RECOMMENDATION
+							================================================= */}
+
+							{analysis.aiRecommendation && (
+								<div className="recommendation-section">
+
+									<div className="recommendation-icon">
+										✨
+									</div>
+
+									<div>
+
+										<h3>
+											AI Recommendation
+										</h3>
+
+										<p>
+											{
+												analysis.aiRecommendation
+											}
+										</p>
+
+									</div>
+
+								</div>
+							)}
+
+							{/* =================================================
+							   BALANCE
+							================================================= */}
+
+							{analysis.mealBalance && (
+								<div className="balance-section">
+
+									<div className="section-title-row">
+
+										<h3>
+											⚖️ Meal Balance
+										</h3>
+
+										<span>
+											AI assessment
+										</span>
+
+									</div>
+
+									<div className="balance-grid">
+
+										<BalanceItem
+											label="Protein"
+											value={
+												analysis
+													.mealBalance
+													.protein
+											}
+											width={
+												balanceWidth(
+													analysis
+														.mealBalance
+														.protein
+												)
+											}
+										/>
+
+										<BalanceItem
+											label="Carbs"
+											value={
+												analysis
+													.mealBalance
+													.carbohydrates
+											}
+											width={
+												balanceWidth(
+													analysis
+														.mealBalance
+														.carbohydrates
+												)
+											}
+										/>
+
+										<BalanceItem
+											label="Vegetables"
+											value={
+												analysis
+													.mealBalance
+													.vegetables
+											}
+											width={
+												balanceWidth(
+													analysis
+														.mealBalance
+														.vegetables
+												)
+											}
+										/>
+
+										<BalanceItem
+											label="Healthy fats"
+											value={
+												analysis
+													.mealBalance
+													.healthyFats
+											}
+											width={
+												balanceWidth(
+													analysis
+														.mealBalance
+														.healthyFats
+												)
+											}
+										/>
+
+									</div>
+
+								</div>
+							)}
+
+							{/* =================================================
+							   ACTIONS
+							================================================= */}
+
+							<div className="analysis-actions">
+
+								<button
+									className="alternatives-button"
+									type="button"
+									onClick={() =>
+										setCurrentPage(
+											"alternatives"
+										)
+									}
+								>
+									🥗 View AI-Powered Alternatives
+								</button>
+
+								<button
+									className="clear-button"
+									type="button"
+									onClick={
+										clearAnalysis
+									}
+								>
+									Clear
+								</button>
+
+							</div>
+
+							<p className="analysis-disclaimer">
+								Nutrition values, portions,
+								health scores and ingredients
+								are AI-generated estimates from
+								the image and should not be
+								treated as laboratory or medical
+								advice.
+							</p>
+
+						</div>
+					)}
+
+					{/* =================================================
+					   ERROR
+					================================================= */}
+
+					{error && (
+						<div className="error-message">
+
+							<strong>
+								{analysis
+									? "History Save Notice"
+									: "Analysis failed"}
+							</strong>
+
+							<span>
+								{error}
+							</span>
+
+						</div>
+					)}
+
+				</section>
+
+			</main>
+
+		</div>
+	);
+};
+
+/* =========================================================
+   NUTRITION CARD
+========================================================= */
+
+type NutritionCardProps = {
+	icon: string;
+	label: string;
+	value?: string;
+};
+
+const NutritionCard: React.FC<
+	NutritionCardProps
+> = ({
+	icon,
+	label,
+	value,
+}) => {
+		return (
+			<div className="nutrition-card">
+
+				<span className="nutrition-icon">
+					{icon}
+				</span>
+
+				<span className="nutrition-label">
+					{label}
+				</span>
+
+				<strong>
+					{value || "N/A"}
+				</strong>
+
+			</div>
+		);
+	};
+
+/* =========================================================
+   SCORE CARD
+========================================================= */
+
+type ScoreCardProps = {
+	title: string;
+	score?: number | null;
+	label: string;
+};
+
+const ScoreCard: React.FC<
+	ScoreCardProps
+> = ({
+	title,
+	score,
+	label,
+}) => {
+		const safeScore =
+			typeof score === "number"
+				? Math.max(
+					0,
+					Math.min(100, score)
+				)
+				: 0;
+
+		return (
+			<div className="score-card">
+
+				<div className="score-top">
+
+					<span>
+						{title}
+					</span>
+
+					<strong>
+
+						{score !== null &&
+							score !== undefined
+							? score
+							: "—"}
+
+						<small>
+							/100
+						</small>
+
+					</strong>
+
+				</div>
+
+				<div className="score-bar">
+
+					<span
+						style={{
+							width: `${safeScore}%`,
+						}}
+					/>
+
+				</div>
+
+				<small>
+					{label}
+				</small>
+
+			</div>
+		);
+	};
+
+/* =========================================================
+   BALANCE ITEM
+========================================================= */
+
+type BalanceItemProps = {
+	label: string;
+	value?: string;
+	width: string;
+};
+
+const balanceLabel = (
+	value?: string
+) => {
+	if (!value) {
+		return "—";
+	}
+
+	return (
+		value.charAt(0).toUpperCase() +
+		value.slice(1)
+	);
+};
+
+const BalanceItem: React.FC<
+	BalanceItemProps
+> = ({
+	label,
+	value,
+	width,
+}) => {
+		return (
+			<div className="balance-item">
+
+				<div className="balance-label">
+
+					<span>
+						{label}
+					</span>
+
+					<strong>
+						{balanceLabel(value)}
+					</strong>
+
+				</div>
+
+				<div className="balance-bar">
+
+					<span
+						style={{
+							width,
+						}}
+					/>
+
+				</div>
+
+			</div>
+		);
+	};
+
+export default Upload;

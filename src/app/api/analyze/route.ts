@@ -1,135 +1,805 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Key lives only on the server. Never prefix this with NEXT_PUBLIC_,
-// or Next.js will bundle it into client-side JS.
-const API_KEY = process.env.OPENROUTER_API_KEY;
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_URL =
+    "https://openrouter.ai/api/v1/chat/completions";
 
-// Any OpenRouter model with vision + structured-output support works here.
-// Swap this string to try others, e.g. "google/gemini-2.5-flash" or "anthropic/claude-3.5-sonnet".
-// Full catalog: https://openrouter.ai/models?fmt=cards&supported_parameters=response_format
-const MODEL_NAME = "openai/gpt-4o-mini";
+export async function POST(request: NextRequest) {
+    try {
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        const model = process.env.OPENROUTER_MODEL;
 
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // ~8MB raw upload cap
-
-const nutritionJsonSchema = {
-    name: "nutrition_data",
-    strict: true,
-    schema: {
-        type: "object",
-        properties: {
-            dishName: { type: "string", description: "The most likely name of the dish or meal shown in the image." },
-            calories: { type: "string", description: "Total calories, including 'cal' unit." },
-            protein: { type: "string", description: "Protein content, including 'g' unit." },
-            fats: { type: "string", description: "Fats content, including 'g' unit." },
-            carbs: { type: "string", description: "Carbohydrates content, including 'g' unit." },
-            fiber: { type: "string", description: "Fiber content, including 'g' unit." },
-            sugar: { type: "string", description: "Sugar content, including 'g' unit." },
-        },
-        required: ["dishName", "calories", "protein", "fats", "carbs", "fiber", "sugar"],
-        additionalProperties: false,
-    },
-};
-
-const systemPrompt =
-    "You are a professional nutritionist AI. Your task is to analyze the food in the image and provide an accurate, single-serving estimate of its full nutritional breakdown.";
-
-const userPrompt =
-    "Analyze the food image and estimate the nutritional breakdown (Calories, Protein, Fats, Carbs, Fiber, Sugar) for a single serving of the entire dish. Use the exact specified JSON format and do not add any outside text.";
-
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3) {
-    let lastError: unknown;
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                if ([429, 500, 503].includes(response.status) && i < maxRetries - 1) {
-                    await new Promise((r) => setTimeout(r, 2 ** i * 1000));
-                    continue;
-                }
-                const errorBody = await response.text().catch(() => "");
-                throw new Error(`Upstream API error: ${response.status} ${errorBody}`);
-            }
-            return await response.json();
-        } catch (error) {
-            lastError = error;
-            if (i < maxRetries - 1) {
-                await new Promise((r) => setTimeout(r, 2 ** i * 1000));
-            }
+        if (!apiKey) {
+            return NextResponse.json(
+                {
+                    error:
+                        "OPENROUTER_API_KEY is not configured.",
+                },
+                { status: 500 }
+            );
         }
-    }
-    throw lastError;
+
+        if (!model) {
+            return NextResponse.json(
+                {
+                    error:
+                        "OPENROUTER_MODEL is not configured in .env.local.",
+                },
+                { status: 500 }
+            );
+        }
+
+        const body = await request.json();
+
+        const image = body?.image;
+
+        if (
+            !image ||
+            typeof image !== "string"
+        ) {
+            return NextResponse.json(
+                {
+                    error:
+                        "No image was provided.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const systemPrompt = `
+You are NutriVisualizer AI.
+
+Analyze the uploaded food image carefully.
+
+Your response MUST be valid JSON.
+
+Do not use markdown.
+Do not use code fences.
+Do not add explanations outside the JSON.
+
+Return EXACTLY these fields:
+
+{
+  "dishName": "",
+  "cuisine": "",
+  "mealType": "",
+  "portionSize": "",
+  "calories": "",
+  "protein": "",
+  "carbs": "",
+  "fats": "",
+  "fiber": "",
+  "sugar": "",
+  "healthScore": 0,
+  "confidence": 0,
+  "ingredients": [],
+  "explanation": "",
+  "highlights": [],
+  "improvements": [],
+  "allergens": [],
+  "aiRecommendation": "",
+  "healthScoreReason": "",
+  "portionReasoning": "",
+  "confidenceReason": "",
+  "mealBalance": {
+    "protein": "moderate",
+    "carbohydrates": "moderate",
+    "vegetables": "moderate",
+    "healthyFats": "moderate"
+  },
+  "nutritionConcerns": [],
+  "estimatedPortionGrams": null
 }
 
-export async function POST(req: NextRequest) {
-    if (!API_KEY) {
-        console.error("OPENROUTER_API_KEY is not set on the server.");
-        return NextResponse.json({ error: "Server is misconfigured." }, { status: 500 });
-    }
+IMPORTANT:
 
-    let body: { image?: string };
-    try {
-        body = await req.json();
-    } catch {
-        return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
-    }
+dishName:
+Give the most likely name of the visible meal.
 
-    const base64Image = body.image;
-    if (!base64Image || typeof base64Image !== "string" || !base64Image.startsWith("data:image/")) {
-        return NextResponse.json({ error: "A valid image data URL is required." }, { status: 400 });
-    }
+cuisine:
+Estimate the cuisine only when there is reasonable visual evidence.
+Otherwise use "Unknown".
 
-    const [, data] = base64Image.split(";base64,");
-    if (!data) {
-        return NextResponse.json({ error: "Malformed image data." }, { status: 400 });
-    }
+mealType:
+Examples:
+Breakfast
+Lunch
+Dinner
+Snack
+Dessert
+Unknown
 
-    // Rough size check on the base64 payload (base64 is ~4/3 the size of raw bytes)
-    const approxBytes = data.length * 0.75;
-    if (approxBytes > MAX_IMAGE_BYTES) {
-        return NextResponse.json({ error: "Image is too large. Please upload something under 8MB." }, { status: 413 });
-    }
+portionSize:
+Describe the visible portion.
 
-    const payload = {
-        model: MODEL_NAME,
-        messages: [
-            { role: "system", content: systemPrompt },
+calories:
+Return estimated calories such as "550 kcal".
+
+protein:
+Return estimated protein such as "45 g".
+
+carbs:
+Return estimated carbohydrates such as "62 g".
+
+fats:
+Return estimated fat such as "21 g".
+
+fiber:
+Return estimated fiber such as "6 g".
+
+sugar:
+Return estimated sugar such as "18 g".
+
+healthScore:
+Give a number from 0 to 100.
+
+confidence:
+Give a number from 0 to 100 describing confidence in the visual analysis.
+
+ingredients:
+Only list ingredients that are visible or strongly supported by the image.
+
+explanation:
+Give a concise explanation of the meal.
+
+highlights:
+Give 2-4 positive nutritional observations.
+
+improvements:
+Give 2-3 practical improvements specific to this meal.
+
+allergens:
+List possible allergens.
+If none are reasonably apparent, return [].
+
+aiRecommendation:
+Give ONE practical recommendation specifically for this meal.
+
+healthScoreReason:
+Explain why the meal received its health score.
+
+portionReasoning:
+Explain how the visible portion affected the nutrition estimate.
+
+confidenceReason:
+Explain what is visually clear and what is uncertain.
+
+mealBalance:
+Evaluate:
+protein
+carbohydrates
+vegetables
+healthyFats
+
+Allowed values ONLY:
+low
+moderate
+good
+high
+
+nutritionConcerns:
+Only mention genuine concerns visible from the meal.
+
+estimatedPortionGrams:
+Give your best approximate estimate in grams.
+Use null if it cannot reasonably be estimated.
+
+Never invent hidden ingredients.
+
+All nutrition values are estimates from visual evidence.
+Do not provide medical diagnosis.
+`;
+
+        const userPrompt = `
+Analyze this meal image for NutriVisualizer.
+
+Identify the food and estimate its nutrition.
+
+Then evaluate:
+
+1. Meal composition
+2. Portion size
+3. Nutrition
+4. Health score
+5. AI confidence
+6. Positive aspects
+7. Improvements
+8. Allergens
+9. Meal balance
+10. One practical AI recommendation
+
+Return only the requested JSON object.
+`;
+
+        const response = await fetch(
+            OPENROUTER_URL,
             {
-                role: "user",
-                content: [
-                    { type: "text", text: userPrompt },
-                    { type: "image_url", image_url: { url: base64Image } },
-                ],
-            },
-        ],
-        response_format: {
-            type: "json_schema",
-            json_schema: nutritionJsonSchema,
-        },
-    };
+                method: "POST",
 
-    try {
-        const result = await fetchWithRetry(API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${API_KEY}`,
-                // Optional but recommended by OpenRouter for their analytics/leaderboards.
-                "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
-                "X-Title": "AI Nutrition Visualizer",
-            },
-            body: JSON.stringify(payload),
-        });
+                headers: {
+                    Authorization:
+                        `Bearer ${apiKey}`,
 
-        const messageContent = result?.choices?.[0]?.message?.content;
-        if (!messageContent) {
-            throw new Error("API response structure was invalid or empty.");
+                    "Content-Type":
+                        "application/json",
+
+                    "HTTP-Referer":
+                        process.env.NEXT_PUBLIC_APP_URL ||
+                        "http://localhost:3000",
+
+                    "X-Title":
+                        "NutriVisualizer",
+                },
+
+                body: JSON.stringify({
+                    model,
+
+                    temperature: 0.1,
+
+                    max_tokens: 2200,
+
+                    messages: [
+                        {
+                            role: "system",
+                            content:
+                                systemPrompt,
+                        },
+
+                        {
+                            role: "user",
+
+                            content: [
+                                {
+                                    type: "text",
+                                    text:
+                                        userPrompt,
+                                },
+
+                                {
+                                    type: "image_url",
+
+                                    image_url: {
+                                        url: image,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            const errorText =
+                await response.text();
+
+            console.error(
+                "OpenRouter API error:",
+                errorText
+            );
+
+            console.error(
+                "OpenRouter request failed:",
+                errorText
+            );
+
+            return NextResponse.json(
+                {
+                    error:
+                        "We couldn't analyze your meal right now. Please try again.",
+                },
+                {
+                    status: response.status,
+                }
+            );
         }
 
-        const nutrition = JSON.parse(messageContent);
-        return NextResponse.json(nutrition);
+        const result =
+            await response.json();
+
+        let content =
+            result?.choices?.[0]?.message
+                ?.content;
+
+        if (!content) {
+            console.error(
+                "Empty OpenRouter response:",
+                result
+            );
+
+            return NextResponse.json(
+                {
+                    error:
+                        "AI returned an empty response.",
+                },
+                { status: 502 }
+            );
+        }
+
+        /*
+         * Some providers return content
+         * as an array.
+         */
+
+        if (Array.isArray(content)) {
+            content = content
+                .map((item: any) => {
+                    if (
+                        typeof item ===
+                        "string"
+                    ) {
+                        return item;
+                    }
+
+                    return (
+                        item?.text || ""
+                    );
+                })
+                .join("");
+        }
+
+        content = String(content).trim();
+
+        /*
+         * Remove markdown fences if
+         * the model accidentally adds them.
+         */
+
+        content = content
+            .replace(
+                /^```json\s*/i,
+                ""
+            )
+            .replace(
+                /^```\s*/i,
+                ""
+            )
+            .replace(
+                /\s*```$/i,
+                ""
+            )
+            .trim();
+
+        /*
+         * If the model puts extra text
+         * before/after JSON, extract the
+         * JSON object.
+         */
+
+        const firstBrace =
+            content.indexOf("{");
+
+        const lastBrace =
+            content.lastIndexOf("}");
+
+        if (
+            firstBrace !== -1 &&
+            lastBrace !== -1
+        ) {
+            content =
+                content.substring(
+                    firstBrace,
+                    lastBrace + 1
+                );
+        }
+
+        let parsed: any;
+
+        try {
+            parsed = JSON.parse(
+                content
+            );
+        } catch (error) {
+            console.error(
+                "JSON parsing failed:",
+                error
+            );
+
+            console.error(
+                "AI content:",
+                content
+            );
+
+            return NextResponse.json(
+                {
+                    error:
+                        "AI returned invalid JSON.",
+                    raw:
+                        content,
+                },
+                { status: 502 }
+            );
+        }
+
+        /*
+         * =========================================================
+         * HELPER FUNCTIONS
+         * =========================================================
+         */
+
+        const firstValue = (
+            ...values: any[]
+        ) => {
+            for (const value of values) {
+                if (
+                    value !== undefined &&
+                    value !== null &&
+                    value !== ""
+                ) {
+                    return value;
+                }
+            }
+
+            return undefined;
+        };
+
+        const asString = (
+            value: any,
+            fallback = "N/A"
+        ) => {
+            if (
+                value === undefined ||
+                value === null ||
+                value === ""
+            ) {
+                return fallback;
+            }
+
+            return String(value);
+        };
+
+        const asArray = (
+            value: any
+        ): string[] => {
+            if (!Array.isArray(value)) {
+                return [];
+            }
+
+            return value
+                .filter(
+                    (item) =>
+                        item !==
+                        null &&
+                        item !==
+                        undefined
+                )
+                .map((item) =>
+                    String(item)
+                );
+        };
+
+        const asScore = (
+            value: any
+        ) => {
+            const number =
+                Number(value);
+
+            if (
+                !Number.isFinite(number)
+            ) {
+                return null;
+            }
+
+            return Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(
+                        number
+                    )
+                )
+            );
+        };
+
+        /*
+         * =========================================================
+         * NORMALIZE COMMON AI FIELD NAMES
+         * =========================================================
+         */
+
+        const dishName =
+            firstValue(
+                parsed.dishName,
+                parsed.mealName,
+                parsed.dish,
+                parsed.name,
+                parsed.foodName,
+                parsed.title
+            );
+
+        const calories =
+            firstValue(
+                parsed.calories,
+                parsed.calorie,
+                parsed.energy,
+                parsed.nutrition
+                    ?.calories
+            );
+
+        const protein =
+            firstValue(
+                parsed.protein,
+                parsed.proteinGrams,
+                parsed.protein_g,
+                parsed.nutrition
+                    ?.protein
+            );
+
+        const carbs =
+            firstValue(
+                parsed.carbs,
+                parsed.carbohydrates,
+                parsed.carbohydrate,
+                parsed.carbsGrams,
+                parsed.nutrition
+                    ?.carbs,
+                parsed.nutrition
+                    ?.carbohydrates
+            );
+
+        const fats =
+            firstValue(
+                parsed.fats,
+                parsed.fat,
+                parsed.totalFat,
+                parsed.fatGrams,
+                parsed.nutrition
+                    ?.fats,
+                parsed.nutrition
+                    ?.fat
+            );
+
+        const fiber =
+            firstValue(
+                parsed.fiber,
+                parsed.fibre,
+                parsed.fiberGrams,
+                parsed.nutrition
+                    ?.fiber,
+                parsed.nutrition
+                    ?.fibre
+            );
+
+        const sugar =
+            firstValue(
+                parsed.sugar,
+                parsed.sugars,
+                parsed.sugarGrams,
+                parsed.nutrition
+                    ?.sugar
+            );
+
+        const healthScore =
+            asScore(
+                firstValue(
+                    parsed.healthScore,
+                    parsed.health_score,
+                    parsed.score,
+                    parsed.health
+                        ?.score
+                )
+            );
+
+        const confidence =
+            asScore(
+                firstValue(
+                    parsed.confidence,
+                    parsed.aiConfidence,
+                    parsed.ai_confidence,
+                    parsed.confidenceScore
+                )
+            );
+
+        /*
+         * =========================================================
+         * FINAL NORMALIZED OBJECT
+         * =========================================================
+         */
+
+        const normalized = {
+            dishName:
+                asString(
+                    dishName,
+                    "Unknown meal"
+                ),
+
+            cuisine:
+                asString(
+                    firstValue(
+                        parsed.cuisine,
+                        parsed.cuisineType
+                    ),
+                    "Unknown"
+                ),
+
+            mealType:
+                asString(
+                    firstValue(
+                        parsed.mealType,
+                        parsed.meal_type
+                    ),
+                    "Unknown"
+                ),
+
+            portionSize:
+                asString(
+                    firstValue(
+                        parsed.portionSize,
+                        parsed.portion,
+                        parsed.servingSize
+                    ),
+                    "Estimated portion"
+                ),
+
+            calories:
+                asString(
+                    calories
+                ),
+
+            protein:
+                asString(
+                    protein
+                ),
+
+            carbs:
+                asString(
+                    carbs
+                ),
+
+            fats:
+                asString(
+                    fats
+                ),
+
+            fiber:
+                asString(
+                    fiber
+                ),
+
+            sugar:
+                asString(
+                    sugar
+                ),
+
+            healthScore,
+
+            confidence,
+
+            ingredients:
+                asArray(
+                    firstValue(
+                        parsed.ingredients,
+                        parsed.detectedIngredients,
+                        parsed.detected_ingredients
+                    )
+                ),
+
+            explanation:
+                asString(
+                    firstValue(
+                        parsed.explanation,
+                        parsed.analysis,
+                        parsed.description,
+                        parsed.aiInsight
+                    ),
+                    ""
+                ),
+
+            highlights:
+                asArray(
+                    firstValue(
+                        parsed.highlights,
+                        parsed.positivePoints,
+                        parsed.whatLooksGood
+                    )
+                ),
+
+            improvements:
+                asArray(
+                    firstValue(
+                        parsed.improvements,
+                        parsed.suggestions,
+                        parsed.howToImprove
+                    )
+                ),
+
+            allergens:
+                asArray(
+                    firstValue(
+                        parsed.allergens,
+                        parsed.possibleAllergens
+                    )
+                ),
+
+            aiRecommendation:
+                asString(
+                    firstValue(
+                        parsed.aiRecommendation,
+                        parsed.recommendation,
+                        parsed.ai_recommendation
+                    ),
+                    ""
+                ),
+
+            healthScoreReason:
+                asString(
+                    firstValue(
+                        parsed.healthScoreReason,
+                        parsed.scoreReason,
+                        parsed.healthReason
+                    ),
+                    ""
+                ),
+
+            portionReasoning:
+                asString(
+                    firstValue(
+                        parsed.portionReasoning,
+                        parsed.portionReason
+                    ),
+                    ""
+                ),
+
+            confidenceReason:
+                asString(
+                    firstValue(
+                        parsed.confidenceReason,
+                        parsed.confidenceExplanation
+                    ),
+                    ""
+                ),
+
+            mealBalance:
+                parsed.mealBalance ||
+                {
+                    protein:
+                        "moderate",
+
+                    carbohydrates:
+                        "moderate",
+
+                    vegetables:
+                        "moderate",
+
+                    healthyFats:
+                        "moderate",
+                },
+
+            nutritionConcerns:
+                asArray(
+                    firstValue(
+                        parsed.nutritionConcerns,
+                        parsed.concerns
+                    )
+                ),
+
+            estimatedPortionGrams:
+                firstValue(
+                    parsed.estimatedPortionGrams,
+                    parsed.portionGrams,
+                    parsed.portion_grams
+                ) ?? null,
+        };
+
+        console.log(
+            "NutriVisualizer AI result:",
+            normalized
+        );
+
+        return NextResponse.json(
+            normalized
+        );
     } catch (error) {
-        console.error("OpenRouter analysis failed:", error);
-        return NextResponse.json({ error: "The AI failed to analyze the image. Please try another image." }, { status: 502 });
+        console.error(
+            "Analyze API error:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                error:
+                    "Something went wrong while analyzing the meal.",
+            },
+            { status: 500 }
+        );
     }
 }
