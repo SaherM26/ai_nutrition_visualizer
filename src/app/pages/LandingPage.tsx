@@ -63,60 +63,67 @@ const LandingContent: React.FC<PageProps> = ({ setCurrentPage }) => {
 
     return (
         <>
-            {/* Top Left Buttons */}
-            <div className="button-container top-left">
-                {user ? (
-                    <>
-                        <button className="login-button" onClick={() => setCurrentPage("history")}>
-                            MY HISTORY
-                        </button>
-                        <button className="signup-button" onClick={() => logout()}>
-                            LOG OUT
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <button className="login-button" onClick={() => setCurrentPage("login")}>
-                            LOG IN
-                        </button>
-                        <button className="signup-button" onClick={() => setCurrentPage("signup")}>
-                            SIGN UP
-                        </button>
-                    </>
-                )}
-            </div>
+            {/* Header: logo, nav links, auth actions all in one bar */}
+            <header className="site-header">
+                <div className="site-logo" onClick={() => setCurrentPage("landing")}>
+                    🍽️ <span>NutriVisualizer</span>
+                </div>
 
-            {/* Main Content */}
-            <div className="main-content-wrapper">
-                <div className="text-content">
-                    <h1 className="main-heading">AI Nutrition Visualizer</h1>
+                <nav className="site-nav">
+                    <button className="nav-link" onClick={() => setCurrentPage("howitworks")}>How It Works</button>
+                    <button className="nav-link" onClick={() => setCurrentPage("upload")}>Upload</button>
+                    <button className="nav-link" onClick={() => setCurrentPage("contact")}>Contact</button>
+                </nav>
+
+                <div className="site-auth">
+                    {user ? (
+                        <>
+                            <button className="ghost-button" onClick={() => setCurrentPage("history")}>My History</button>
+                            <button className="solid-button" onClick={() => logout()}>Log Out</button>
+                        </>
+                    ) : (
+                        <>
+                            <button className="ghost-button" onClick={() => setCurrentPage("login")}>Log In</button>
+                            <button className="solid-button" onClick={() => setCurrentPage("signup")}>Sign Up</button>
+                        </>
+                    )}
+                </div>
+            </header>
+
+            {/* Hero */}
+            <section className="hero-section">
+                <div className="hero-text">
+                    <span className="hero-eyebrow">AI-Powered Nutrition Analysis</span>
+                    <h1 className="main-heading">Know What&apos;s<br />On Your Plate</h1>
                     <p className="sub-heading">
-                        Upload Your Food — Get Instant <br /> Nutrition Insights.
+                        Snap a photo of any meal and get an instant breakdown of calories,
+                        macros, and healthier alternatives — powered by AI.
                     </p>
+                    <div className="hero-cta-group">
+                        <button className="cta-primary" onClick={() => setCurrentPage("upload")}>
+                            Analyze a Meal →
+                        </button>
+                        <button className="cta-secondary" onClick={() => setCurrentPage("howitworks")}>
+                            See How It Works
+                        </button>
+                    </div>
                 </div>
 
                 <div className="image-and-annotations-container">
+                    <div className="hero-image-glow" />
                     <img
                         src="/images/food-platter.jpg"
                         alt="A delicious platter of various healthy foods"
                         className="main-image"
                     />
 
-                    {/* Annotations
                     <div className="annotation top-right-annotation">
-                        <span className="annotation-text">Detailed Nutrition Facts & Calories</span>
-                        <div className="annotation-line line-1" />
+                        <span className="annotation-text">📊 Full Nutrition Breakdown</span>
                     </div>
                     <div className="annotation bottom-left-annotation">
-                        <span className="annotation-text">
-                            Smart Calorie Tracking
-                            <br />
-                            In Real-Time
-                        </span>
-                        <div className="annotation-line line-2" />
-                    </div> */}
+                        <span className="annotation-text">⚡ Results in Seconds</span>
+                    </div>
 
-                    {/* Leaves */}
                     <div className="leaf leaf-1">
                         <img src="/images/leaves.png" alt="Decorative leaf" width={80} height={80} />
                     </div>
@@ -124,21 +131,30 @@ const LandingContent: React.FC<PageProps> = ({ setCurrentPage }) => {
                         <img src="/images/leaves.png" alt="Decorative leaf" width={80} height={80} />
                     </div>
                 </div>
-            </div>
+            </section>
 
-            {/* Bottom Navigation */}
-            <div className="bottom-navigation-container">
-                <div className="navigation-buttons-wrapper">
-                    <div className="navigation-group">
-                        <button className="nav-button">Home</button>
-                        <button className="nav-button">Features</button>
-                        <button className="nav-button" onClick={() => setCurrentPage("howitworks")}>How It Works </button>
-                        <button className="nav-button" onClick={() => setCurrentPage("upload")}>Upload</button>
-                        <button className="nav-button" onClick={() => setCurrentPage("contact")}>Contact</button>
-                    </div>
+            {/* Feature highlights */}
+            <section className="feature-strip">
+                <div className="feature-card">
+                    <span className="feature-icon">📸</span>
+                    <h3>Snap a Photo</h3>
+                    <p>Upload or drag in any meal photo — no manual logging required.</p>
                 </div>
+                <div className="feature-card">
+                    <span className="feature-icon">🧠</span>
+                    <h3>AI Analyzes It</h3>
+                    <p>Get calories, protein, carbs, fats, fiber, and sugar in seconds.</p>
+                </div>
+                <div className="feature-card">
+                    <span className="feature-icon">🥗</span>
+                    <h3>Eat Smarter</h3>
+                    <p>See healthier alternatives and track your history over time.</p>
+                </div>
+            </section>
+
+            <footer className="site-footer">
                 <p className="copyright-text">© 2025 ErrorBite | All Rights Reserved</p>
-            </div>
+            </footer>
         </>
     );
 };
